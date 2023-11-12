@@ -1,0 +1,29 @@
+# .gitignore
+
+# Operating System Generated Files
+.DS_Store
+
+#Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# Python Virtual Environments
+venv/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+
+# Python Compiled Files
+*.pyc
+
+# Environment Variables
+.env
+
+# VSCode Settings
+.vscode/
+
+# Log Files
+*.log
+
+# Temporary Files
+*.tmp
