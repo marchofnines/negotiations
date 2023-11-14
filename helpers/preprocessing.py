@@ -3,27 +3,192 @@ import numpy as np
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import cross_val_score
 from IPython.core.display import display, HTML
+
+
+def edit_cols(raw):
+    """
+    Rename and reorder columns of the data.  It is specific to this dataset and
+    not a general use function.  
+
+    This function takes the raw DataFrame and performs three main operations:
+    1. Renames columns to more concise or readable names.
+    2. Eliminates Negotation ID as it would not be helpful for our purposes
+    3. Selects and reorders a subset of these columns for the final DataFrame.
+
+    Parameters:
+    raw (DataFrame): The raw DataFrame with original column names.
+
+    Returns:
+    DataFrame: A DataFrame with renamed and reordered columns.
+
+    Note:
+    The function does not modify the original DataFrame in place.
+    """
+    # Renaming columns for clarity and consistency
+    df_edits = raw.rename(columns={"Level": "level",
+                            "NSA vs NNSA Claims": "NSA_NNSA", 
+                            "SELF vs FULLY Claims": "plan_funding",
+                            "Day of Decision Date": "decision_date",
+                            "NSA Open Negotiation or Prepayment Negotiation?": "negotiation_type",
+                            "Split claim": "split_claim",
+                            "In response to:": "in_response_to",
+                            "Decision": "decision",
+                            "Negotiating Amount": "negotiation_amount",
+                            "Group Number": "group_number",
+                            "Day of Deadline": "deadline",
+                            "TPA Representative": "TPA_rep",
+                            "Insurance Name":"carrier",
+                            "Billed Amount": "billed_amount",
+                            "Max Offer $ Amount": "offer",
+                            "Max Counter Offer $ Amount": "counter_offer",
+                            "Negotiation ID": "negotiation_id", 
+                            "Claim Status": "claim_status",
+                            "Claim ID": "claim_id",
+                            "TPA":"TPA",
+                            "Facility":"facility",
+                            "Day of Patient Date of Birth":"DOB",
+                            "Day of D.O.S.": "service_date",
+                            "Claim Type": "claim_type",
+                            "Max Offer Received Date": "offer_date", 
+                            "Max Counter Offer Date": "counter_offer_date"}, inplace=False)
+
+    # Selecting and reordering columns 
+    df_edits = df_edits[['claim_id', 'claim_type','NSA_NNSA','split_claim', 'negotiation_type','in_response_to', 'claim_status', 
+                        'level', 'facility', 'service_date',  
+                        'DOB', 'carrier','group_number','plan_funding','TPA', 'TPA_rep', 
+                        'billed_amount','negotiation_amount','offer','counter_offer', 'offer_date', 'counter_offer_date', 
+                        'deadline', 'decision_date', 'decision'
+                        #,'negotiation_id'
+                        ]]
+    return df_edits
+
+
+def smart_replace(df, col, needs_replaced, good_value, case=False):
+    """
     
-def mystats(df, nulls=False):
-    #unique_counts = []
-    #for col in df.columns:
-    #    unique_values = df[col][~df[col].isna() & (df[col] != '') & (df[col] != ' ')].unique()
-    #    unique_counts.append(len(unique_values))
-    #summary_data['unique_values_excluding_null_blank_nan'] = unique_counts
-    
-    stats_df = pd.DataFrame({#'blank_spaces': df.apply(lambda x: x.str.isspace().sum(), axis=0), #(df==' ').sum(),
-                             #'empty_strs': (df=='').sum(),
-                             'nulls': df.isnull().sum(), 
-                             'null_pct': round(100*(df.isnull().sum()) / len(df),2), 
-                             'unique_not_null': df.nunique(),
+    This function searches for strings or lists of strings  contained in a specified 
+    column of a DataFrame and replaces those values with a new one
+
+    Parameters:
+    df (DataFrame): The DataFrame in which replacements are to be made.
+    col (str): The name of the column to perform replacements in.
+    needs_replaced (str or list): The pattern(s) to search for in the column. 
+                                  Can be a single string or a list of strings.
+    good_value: The value to replace the matching entries with.
+    case (bool): Whether to consider case sensitivity in pattern matching. 
+                 Defaults to False (case insensitive).
+
+    Returns:
+    None: The function directly modifies the DataFrame and does not return anything.
+
+    Note:
+    The function modifies the DataFrame in place.
+    """
+    if isinstance(needs_replaced, list):
+        for needs_replaced_str in needs_replaced: 
+            df.loc[df[col].str.contains(needs_replaced_str, case=case, na=False), col] = good_value #df.col.value_counts().index[0]
+    else: 
+        df.loc[df[col].str.contains(needs_replaced, case=case, na=False), col] = good_value
+       
+
+def mystats(df, nulls_only=False):    
+    """
+    Generate statistics about missing values and unique values in a DataFrame.
+
+    This function calculates the number of missing values, the percentage of missing 
+    values, and the number of unique non-null values for each column in the DataFrame. 
+    The results are sorted in descending order by the percentage of missing values.
+
+    Parameters:
+    df (DataFrame): The DataFrame to analyze.
+    nulls_only (bool): Flag to determine the output.
+                       If True, returns stats for all columns.
+                       If False, returns stats only for columns with missing values.
+                       Defaults to False.
+
+    Returns:
+    DataFrame: A DataFrame containing the calculated statistics.
+
+    Notes:
+    - The function prints the shape of the input DataFrame.
+    """
+    # Creating a DataFrame to hold statistics
+    stats_df = pd.DataFrame({
+                             'nulls': df.isnull().sum(), #count of nulls 
+                             'null_pct': round(100*(df.isnull().sum()) / len(df),2), #erpcentage of nulls
+                             'unique_not_null': df.nunique(), #count of unique non-null values 
                              #'unique_not_null_blank_empty': unique_counts,
                              #'dups': [df[col].duplicated().sum() for col in df.columns]
                             }).sort_values(by='null_pct', ascending=False)
+    #print shape of dataframe 
     print(df.shape)
-    if nulls:
+    # Return the statistics DataFrame if nulls_only is True
+    if nulls_only:
         return stats_df
     else: 
         return stats_df.query('nulls > 0')
+
+def compare_acceptance_rates(df, col, val1, val2, descr1=None, descr2=None):
+    """
+    Compares the acceptance rates for two groups within a dataframe.
+
+    This function calculates and compares the acceptance rates of two groups 
+    in a given dataframe. The groups are identified by the values in val1 and val2. 
+    Acceptance rates are calculated as the mean of mapped decision values 
+    ('Accepted' to 1, 'Rejected' to 0).
+
+    Parameters:
+    - df (DataFrame): The dataframe containing the relevant data.
+    - col (str): The name of the column used to identify groups.
+    - val1 (str): The value in the column that identifies the first group.
+    - val2 (str): The value in the column that identifies the second group.
+    - descr1 (str, optional): Description for the first group. Defaults to val1.
+    - descr2 (str, optional): Description for the second group. Defaults to val2.
+
+    Prints:
+    - A statement comparing the acceptance rates of the two groups.
+    """
+    # Set descriptions to values if no descriptions are provided
+    if descr1 is None: 
+        descr1=val1
+    if descr2 is None: 
+        descr2=val2
+     # Map decisions to numeric values for easier computation
+    decision_map={'Rejected': 0, 'Accepted':1}
+    
+    # Compute the mean acceptance rate for each group
+    group1_AR=df.query(f"{col}=='{val1}'")['decision'].map(decision_map).mean()
+    group2_AR=df.query(f"{col}=='{val2}'")['decision'].map(decision_map).mean()
+    
+    # Compare the acceptance rates and print the result as the ration of majority group over minority group
+    if group1_AR > group2_AR:
+        print(f"\n{descr1} claims are {group1_AR/group2_AR:.2f} more likely to be accepted than {descr2} claims")
+    else:
+        print(f"\n{descr2} claims are {group2_AR/group1_AR:.2f} more likely to be accepted than {descr1} claims")
+
+def reduce_dimensionality(df,col,dimension_threshold, default_value):
+    """
+    Reduces the dimensionality of a categorical column in a dataframe.
+
+    This function modifies a specified categorical column in a dataframe by grouping
+    low-frequency categories into a single default category. Categories with a 
+    frequency below a specified threshold are replaced with a default value, 
+    reducing the number of unique categories in the column.
+
+    Parameters:
+    - df (DataFrame): The pandas dataframe containing the data.
+    - col (str): The name of the categorical column to be processed.
+    - dimension_threshold (int): The frequency threshold below which categories 
+      are considered low-frequency and grouped together.
+    - default_value (str): The value to assign to low-frequency categories.
+
+    Returns:
+    - None (Dataframe is changed in place)
+    """
+    # Calculate the frequency of each category
+    category_counts = df[col].value_counts()
+    # Group all categories with a frequency below the threshold into the "other" category
+    df[col] = df[col].apply(lambda x: default_value if category_counts[x] < dimension_threshold else x)
 
 """def replace_values_in_query(df, col, condition, set_values):
     indices = df.query(f"{col}{condition}").index
@@ -35,7 +200,9 @@ def get_rows_with_value_count_threshold(df, col, threshold):
     # Return rows where 'col' is in the list of values above the threshold
     return df[df[col].isin(col_value_list)]
 
-def reduce_dimensionality(df, col, min_num_rows_per_dimension, default_value):
+
+
+"""def reduce_dimensionality(df, col, min_num_rows_per_dimension, default_value):
     # Find the values that occur at least the minimum number of times
     df_top_values = get_rows_with_value_count_threshold(df, col, min_num_rows_per_dimension)
     
@@ -43,7 +210,7 @@ def reduce_dimensionality(df, col, min_num_rows_per_dimension, default_value):
     to_replace = df.loc[~df.index.isin(df_top_values.index), col].unique()
     
     # Replace the values
-    df.loc[df[col].isin(to_replace), col] = default_value
+    df.loc[df[col].isin(to_replace), col] = default_value"""
 
 """
 #def get_rows_with_value_count_threshold(df, col, threshold):
@@ -65,14 +232,7 @@ def reduce_dimensionality(df, col, min_num_rows_per_dimension, default_value, vi
     
 def consolidate_values(df, col, needs_replaced, good_value):
     df.loc[df[col].isin(needs_replaced), col] = good_value #df.col.value_counts().index[0]
-
-def smart_replace(df, col, needs_replaced, good_value, case=False):
-    if isinstance(needs_replaced, list):
-        for needs_replaced_str in needs_replaced: 
-            df.loc[df[col].str.contains(needs_replaced_str, case=case, na=False), col] = good_value #df.col.value_counts().index[0]
-    else: 
-        df.loc[df[col].str.contains(needs_replaced, case=case, na=False), col] = good_value
-        
+ 
 
 
 #find number of zeroes 
@@ -86,44 +246,7 @@ def smart_replace(df, col, needs_replaced, good_value, case=False):
 #duplicate_rows
 #df_edits = raw.drop_duplicates(inplace=False)
 
-def edit_cols(raw):
-    #edit field names
-    df_edits = raw.rename(columns={"Level": "level",
-                            "NSA vs NNSA Claims": "NSA_NNSA", 
-                            "SELF vs FULLY Claims": "plan_funding",
-                            "Day of Decision Date": "decision_date",
-                            "NSA Open Negotiation or Prepayment Negotiation?": "negotiation_type",
-                            "Split claim": "split_claim",
-                            "In response to:": "in_response_to",
-                            "Decision": "decision",
-                            "Negotiating Amount": "negotiation_amount",
-                            "Group Number": "group_number",
-                            "Day of Deadline": "deadline",
-                            "TPA Representative": "TPA_rep",
-                            "Insurance Name":"carrier",
-                            "Billed Amount": "billed_amount",
-                            "Max Offer $ Amount": "offer",
-                            "Max Counter Offer $ Amount": "counter_offer",
-                            "Negotiation ID": "negotiation_id", 
-                            "Claim Status": "claim_status",
-                            "Claim ID": "claim_ID",
-                            "TPA":"TPA",
-                            "Facility":"facility",
-                            "Day of Patient Date of Birth":"DOB",
-                            "Day of D.O.S.": "service_date",
-                            "Claim Type": "claim_type",
-                            "Max Offer Received Date": "offer_date", 
-                            "Max Counter Offer Date": "counter_offer_date"}, inplace=False)
 
-    #select and reorder final columns 
-    df_edits = df_edits[['claim_ID', 'claim_type','NSA_NNSA','split_claim', 'negotiation_type','in_response_to', 'claim_status', 
-                        'level', 'facility', 'service_date',  
-                        'DOB', 'carrier','group_number','plan_funding','TPA', 'TPA_rep', 
-                        'billed_amount','negotiation_amount','offer','counter_offer', 'offer_date', 'counter_offer_date', 
-                        'deadline', 'decision_date', 'decision'
-                        #,'negotiation_id', 'claim_id'
-                        ]]
-    return df_edits
 
 
 
@@ -215,21 +338,7 @@ def consolidate_values_TC(df_edits):
                         'Gallagher Bassett' )
 
 
-def compare_acceptance_rates(df, col, val1, val2, descr1=None, descr2=None):
-    if descr1 is None: 
-        descr1=val1
-    if descr2 is None: 
-        descr2=val2
-        
-    decision_map={'Rejected': 0, 'Accepted':1}
-    #compute group means
-    group1_AR=df.query(f"{col}=='{val1}'")['decision'].map(decision_map).mean()
-    group2_AR=df.query(f"{col}=='{val2}'")['decision'].map(decision_map).mean()
-    
-    if group1_AR > group2_AR:
-        print(f"\n{descr1} claims are {group1_AR/group2_AR:.2f} more likely to be accepted than {descr2} claims")
-    else:
-        print(f"\n{descr2} claims are {group2_AR/group1_AR:.2f} more likely to be accepted than {descr1} claims")
+
  
 
 

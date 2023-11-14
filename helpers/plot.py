@@ -11,27 +11,80 @@ from helpers.my_imports import *
 pio.renderers.default='notebook'
 
 
-
 def reverse_palette(df, hue, base_palette):
-    # Determine the order of classes based on volume and assign colors accordingly
+    """
+    Generate a reversed color palette mapped to the unique values of a specified column. I created this
+    function because the regular palette was making the majority class darker than the minority class
+    which made it difficult to see the hue of the data in histograms 
+
+    This function creates a color palette based on the unique values in a specified column 
+    ('hue') of a DataFrame. It assigns colors in reverse order of the frequency of the 
+    unique values.
+
+    Parameters:
+    df (DataFrame): The DataFrame containing the data.
+    hue (str): The name of the column for which the palette is to be created.
+    base_palette (str or list): The name of the seaborn palette or a list of colors to use as the base.
+
+    Returns:
+    dict: A dictionary mapping each unique value in the 'hue' column to a color from the reversed palette.
+
+    Note:
+    - The number of colors in the palette is equal to the number of unique values in the 'hue' column.
+    """
+
+    # Determine the order of unique values based on their frequency
     class_order = df[hue].value_counts().index
+    # Count the number of unique values in the hue column
     n_classes = df[hue].nunique()
+
+    # Generate a color palette and reverse its order
     magma_palette = sns.color_palette(base_palette, n_classes)
     magma_palette.reverse()
+
+    # Map each unique value to a color from the reversed palette
     return {class_order[i]: magma_palette[i] for i in range(n_classes)}
+
     
 def sns_categorical(df,feature,feature_label,hue, legend_title, rate_descr, figx=17, figy=8, common_fontsize=19.5, xtick_divisor=1, rotation=0):
+    """
+    Create a two-part seaborn plot with a categorical distribution and rate visualization.
+
+    This function generates a two-row plot using seaborn. The first row displays a categorical
+    count distribution, and the second row shows a bar plot representing rates (e.g., acceptance rates)
+    for different categories. The function is customizable with various plotting parameters.
+
+    Parameters:
+    df (DataFrame): The DataFrame containing the data to plot.
+    feature (str): The column name in the DataFrame to be used as the x-axis.
+    feature_label (str): Label for the x-axis.
+    hue (str): Column name to be used for color encoding (hue).
+    legend_title (str): Title for the legend.
+    rate_descr (str): Description for the rate being visualized (e.g., 'Acceptance').
+    figx (int): Width of the figure. Defaults to 17.
+    figy (int): Height of the figure. Defaults to 8.
+    common_fontsize (float): Font size for text elements. Defaults to 19.5.
+    xtick_divisor (int): Divisor for x-tick frequency. Defaults to 1.
+    rotation (int): Rotation angle for x-tick labels. Defaults to 0.
+
+    Returns:
+    None: The function only generates plots and does not return any value.
+    """
+
     ### Define df_viz to facilitiate plotting acceptance rates
     df_viz = df.copy()
+    # Map 'decision' column to numeric values for rate calculation
     df_viz.decision = df_viz.decision.map({'Rejected': 0, 'Accepted':1})
 
-    common_fontsize =common_fontsize
+    # Set up color palette and plotting style
     magma_palette = sns.color_palette('magma', 10)
-    #selected_colors = [magma_palette[i] for i in [1,2,4]]
-    
-    plt.figure(figsize=(figx, figy))  
     sns.set(style="whitegrid", font_scale=1)
-
+    
+    # Set figure size and common font size for labels and ticks
+    plt.figure(figsize=(figx, figy))  
+    common_fontsize =common_fontsize
+    
+    # Create the figure and the first subplot (categorical count distribution)
     plt.subplot(2,1,1)
     sns.countplot(data=df, x=feature,hue=hue, palette='magma')
     plt.title(f'{feature_label} Distribution by {legend_title}',fontsize=common_fontsize)
@@ -41,6 +94,7 @@ def sns_categorical(df,feature,feature_label,hue, legend_title, rate_descr, figx
     plt.yticks(fontsize=common_fontsize)
     plt.legend(title=f'{legend_title}', title_fontsize=common_fontsize, fontsize=common_fontsize) 
 
+    # Create the second subplot (bar plot for rates)
     plt.subplot(2, 1, 2)
     ax2=sns.barplot(data=df_viz, x=feature,y=hue, color=magma_palette[5]) ##color='#1f77b4')
     plt.title(f'{rate_descr} Rate by {feature_label}',fontsize=common_fontsize)
@@ -49,7 +103,7 @@ def sns_categorical(df,feature,feature_label,hue, legend_title, rate_descr, figx
     plt.xticks(ticks=plt.xticks()[0][::xtick_divisor], labels=plt.xticks()[1][::xtick_divisor], fontsize=common_fontsize, rotation=rotation)
     plt.yticks(fontsize=common_fontsize)
     
-        # Adding percentages on the bars for the second plot
+    # Adding percentages on the top of bars for the second plot
     for p in ax2.patches:
         ax2.annotate(f'{100 * p.get_height():.1f}%', 
                      (p.get_x() + p.get_width() / 2., p.get_height()), 
@@ -58,7 +112,8 @@ def sns_categorical(df,feature,feature_label,hue, legend_title, rate_descr, figx
                      color='black', 
                      xytext=(0, 25), 
                      textcoords='offset points')
-
+        
+    # Adjust layout and add a main title
     plt.tight_layout(h_pad=1.09)
     banner_y = 1.05
     plt.suptitle(f"{feature_label} Distribution and {rate_descr} Rates", 
@@ -150,6 +205,7 @@ def dec_boundary_mesh(estimator, X1, y, feature1, feature2):
     labels = pd.factorize(estimator.predict(grid))[0]
     plt.contourf(xx, yy, labels.reshape(XX.shape), cmap = 'twilight', alpha = 0.6)
     sns.scatterplot(data = X1, x = feature1, y = feature2, hue = y,  palette = 'flare')
+    
 
 def plot_percentage_barplots(df, subp_titles, legend_title, figure_title='', target='y', row_height=200):
     """
@@ -300,14 +356,10 @@ def conf_matrix_PRC(model, X_test, y_test, pos_index, threshold=0.5, common_font
     plt.legend(bbox_to_anchor=(xlegend, ylegend), loc='lower left', fontsize=common_fontsize*0.77)
     plt.show()
 
-""" #Check Roc Curve
-    RocCurveDisplay.from_estimator(model, X_test, y_test, pos_label='Accepted', linewidth=2.7, ax=ax[1])
-    ax[1].plot(np.array([0, 1]), np.array([0, 1]), linewidth=2.7, label='baseline')
-    plt.title('ROC Curve for Chosen Model', fontsize=common_fontsize)
-    plt.xlabel('False Positive Rate', fontsize=common_fontsize)
-    plt.ylabel('True Positive Rate',fontsize=common_fontsize)
-    plt.xticks(fontsize=common_fontsize)
-    plt.yticks(fontsize=common_fontsize)
-    plt.legend(title='', title_fontsize=common_fontsize, fontsize=common_fontsize) """
-    
-    
+
+    # Determine the order of classes based on volume and assign colors accordingly
+    ##class_order = df[hue].value_counts().index
+    #n_classes = df[hue].nunique()
+    #magma_palette = sns.color_palette(base_palette, n_classes)
+    #magma_palette.reverse()
+    #return {class_order[i]: magma_palette[i] for i in range(n_classes)}

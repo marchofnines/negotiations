@@ -37,14 +37,236 @@ def reorder_cols_in(df, in_str, after=True):
     return df[new_col_order]
 
 
+
+
+def build_pipe_evaluate_bin_clf(models, X_train, y_train, X_test,y_test, transformer=None, scaler=None, selector=None):
+    """
+    Evaluate one or more machine learning models on given data.
+    
+    Parameters:
+    - models: dict or single  model. If dict, keys are model names and values are model instances.
+    - X_train, y_train, X_test, y_test: Training and test datasets.
+    - transformer: Data transformer (optional).
+    - scaler: Data scaler (optional).
+    - selector: Feature selector (optional).
+    
+    Returns:
+    - results_df: DataFrame containing performance metrics.
+    """
+    #Define dict of arrays to store results
+    results = {
+    'Model': [],
+    'Train Time': [],
+    'Inference Time': [],
+    'Train F1': [],
+    'Test F1': [],
+    'Train Precision': [],
+    'Test Precision': [],
+    'Train Recall': [],
+    'Test Recall': [],
+    'Train Accuracy': [],
+    'Test Accuracy': [],
+    #'Train ROC AUC': [],
+    #'Test ROC AUC': [],
+    }
+    
+    #If not a dict, make it a dict for uniform processing
+    if not isinstance(models, dict):
+        models = {
+            models.__class__.__name__ : models
+        }
+        
+    import time
+    fit_models=[]
+    for model_name, model in models.items():      
+        #build steps for pipeline
+        steps = []
+        if transformer is not None:
+            steps.append(('transformer', transformer))
+        if scaler is not None:
+            steps.append(('scaler', scaler))
+        if selector is not None:
+            steps.append(('selector', selector))
+        
+        #Take start timestamp for training
+        start_time = time.time()
+
+        #if it's a pipeline, or if it's a standalone model, just fit it
+        if isinstance(model, Pipeline) or (transformer is None and scaler is None and selector is None):
+            fit_model = model.fit(X_train, y_train)
+        #else add the model to the steps and then fit it 
+        else:
+            steps.append((model_name, model))
+            fit_model = Pipeline(steps).fit(X_train, y_train)
+            fit_models.append(fit_model)
+
+        #Take end timestamp for training
+        train_time = time.time() - start_time
+
+        #Take start timestamp for test inference
+        start_time = time.time()
+        y_test_pred = fit_model.predict(X_test)
+        #Take end timestamp for test inference 
+        inference_time = time.time() - start_time
+
+        #Compute various score metrics
+   
+        """# Encoding labels to numeric values, 1 for Positive Class and 0 for Negative class
+        from sklearn.preprocessing import LabelEncoder
+        label_encoder = LabelEncoder()
+        y_train_encoded = label_encoder.fit_transform(y_train)
+        y_test_encoded = label_encoder.transform(y_test)
+
+        # Train the model with the training data
+        model.fit(X_train, y_train_encoded)
+
+        # Predict probabilities for the test data
+        # The predicted probabilities are for class 1, hence the use of [:, 1]
+        y_train_probas = model.predict_proba(X_train)[:, 1]
+        y_test_probas = model.predict_proba(X_test)[:, 1]
+
+        # Now we can calculate the ROC AUC score using the true binary labels and the predicted probabilities
+        train_roc_auc = roc_auc_score(y_train_encoded, y_train_probas)
+        test_roc_auc = roc_auc_score(y_test_encoded, y_test_probas)"""
+
+        train_accuracy = fit_model.score(X_train, y_train)
+        test_accuracy = fit_model.score(X_test, y_test)
+
+        y_train_pred = fit_model.predict(X_train)
+        #y_test_preds = model.predict(X_test) (already computed)
+
+        train_precision = precision_score(y_train, y_train_pred, average='weighted')
+        train_recall = recall_score(y_train, y_train_pred, average='weighted')
+        train_f1 = f1_score(y_train, y_train_pred, average='weighted')    
+
+        test_precision = precision_score(y_test, y_test_pred, average='weighted')
+        test_recall = recall_score(y_test, y_test_pred, average='weighted')
+        test_f1 = f1_score(y_test, y_test_pred, average='weighted')
+
+        #Append results to arrays 
+        results['Model'].append(model_name)
+        results['Train Time'].append(train_time)
+        results['Inference Time'].append(inference_time)
+        results['Train F1'].append(train_f1)
+        results['Test F1'].append(test_f1)
+        results['Train Precision'].append(train_precision)
+        results['Test Precision'].append(test_precision)
+        results['Train Recall'].append(train_recall)
+        results['Test Recall'].append(test_recall)
+        results['Train Accuracy'].append(train_accuracy)
+        results['Test Accuracy'].append(test_accuracy)
+        """results['Train ROC AUC'].append(train_roc_auc)
+        results['Test ROC AUC'].append(test_roc_auc)"""
+
+    #Create results dataframe using the arrays of metrics
+    results_df = pd.DataFrame(results)
+    return results_df, fit_models
+
+def build_transf_evaluate_bin_clf(models, X, y, test_size=0.25, stratify=None, rs=42,
+                                  ohe_cols=[], binary_cols=[], ordinal_cols=[], numerical_cols=[],scaler=StandardScaler(), selector=None):
+    X=X[ohe_cols+binary_cols+ordinal_cols+numerical_cols]
+    X_train, X_test, y_train, y_test = train_test_split(X,y, stratify=stratify, test_size=test_size, random_state=rs)
+    
+    transformer = ColumnTransformer(
+    transformers=[
+        ('ohe', OneHotEncoder(drop='if_binary', sparse_output=False, handle_unknown='ignore'), ohe_cols),
+        ('binary', BinaryEncoder(), binary_cols),
+        ('ordinal', OrdinalEncoder(), ordinal_cols)
+    ], remainder='passthrough')
+    return build_pipe_evaluate_bin_clf(models, X_train, y_train, X_test,y_test, 
+                                       transformer=transformer, 
+                                       scaler=scaler, 
+                                       selector=selector)
+
+"""def build_transf_evaluate_bin_clf(df_orig, target, models, dropna=False, test_size=0.25, stratify=None, rs=42,
+                                  ohe_cols=[], binary_cols=[], ordinal_cols=[], numerical_cols=[], selector=None):
+    df = df_orig.copy(deep=True)
+    df.dropna(inplace=dropna)     
+    X,y=df.drop(columns=target), df[target]
+    X=X[ohe_cols+binary_cols+ordinal_cols+numerical_cols]
+    X_train, X_test, y_train, y_test = train_test_split(X,y, stratify=stratify, test_size=0.25, random_state=42)
+    
+    transformer = ColumnTransformer(
+    transformers=[
+        ('ohe', OneHotEncoder(drop='if_binary', sparse_output=False, handle_unknown='ignore'), ohe_cols),
+        ('binary', BinaryEncoder(), binary_cols),
+        ('ordinal', OrdinalEncoder(), ordinal_cols)
+    ], remainder='passthrough')
+    return build_pipe_evaluate_bin_clf(models, X_train, y_train, X_test,y_test, 
+                                       transformer=transformer, 
+                                       scaler=StandardScaler(), 
+                                       selector=selector)"""
+
+
+
+def get_lgr_pipe_coefs(pipe, transf_name='transformer', scaler_name='scaler', selector_name=None):
+    #Define coefficients and intercept
+    steps_list = list(pipe.named_steps.items())
+    model_name, _ = steps_list[-1]
+    my_coefs = pipe.named_steps[model_name].coef_[0]
+    intercept = pipe.named_steps[model_name].intercept_
+    #Features from Transformer
+    my_features = pipe.named_steps[transf_name].get_feature_names_out()
+    
+    if selector_name:
+        #Create mask for remaining features after selectfrommodel 
+        remaining_feature_mask = pipe.named_steps.selector.get_support()
+        #Set remaining features
+        remaining_features = np.array(my_features)[remaining_feature_mask]
+        
+        # Get the means and standard deviations
+        scaler = pipe.named_steps[scaler_name]
+        means = scaler.mean_[remaining_feature_mask]
+        std_devs = scaler.scale_[remaining_feature_mask]  # standard deviation
+        
+    else: 
+        # If there is no selector, all features remain
+        remaining_features = my_features
+        # Get the means and standard deviations for all features
+        scaler = pipe.named_steps[scaler_name]
+        means = scaler.mean_
+        std_devs = scaler.scale_
+        
+    # Create the dataframe with coefficients, means, and std_devs
+    interpretation_df = pd.DataFrame({
+    'coefs': my_coefs,
+    'means': means,
+    'std_devs': std_devs, 
+    'exp_unscaled_coefs': np.exp(my_coefs/std_devs),
+    }, index=remaining_features)
+    
+    #Sort the dataframe
+    return interpretation_df.sort_values(by='exp_unscaled_coefs', ascending=False)
+
+
+def select_all_col_names_except(df, exclude_list):
+    """
+    Select all column names from a DataFrame except those specified in an exclusion list.
+    
+    Parameters:
+    - df: pandas DataFrame
+    - exclude_list: list of column names to exclude
+    
+    Returns:
+    - List of column names to keep
+    """
+    # List of all columns
+    all_columns = df.columns.tolist()
+    # Columns to exclude
+    exclude_columns = exclude_list
+    # Columns to keep
+    return list(set(all_columns) - set(exclude_columns))
+
+
+
 """def reinit_data(df_orig, target, dropna=False, test_size=0.25, stratify=None, rs=42): 
     df = df_orig.copy(deep=True)
     df.dropna(inplace=dropna)     
     X,y=df.drop(columns=target), df[target]
     X_train, X_test, y_train, y_test = train_test_split(X,y, stratify=stratify, test_size=test_size, random_state=rs)"""
 
-def cv_and_holdout(estimator,X, y, test_size=0.27, stratify=None, random_state=42, search_type='random', param_dict=None,
-                  scoring=None, refit=None, holdout_tolerance=0, verbose=0, cv=5, n_iter=10, summary=True):
+def cv_and_holdout(estimator,X, y, test_size=0.25, stratify=None, random_state=42, search_type='halving_random', param_dict=None,
+                  scoring=None, refit=None, holdout_tolerance=0, verbose=0, cv=5, n_iter=10, factor=3, summary=True):
     pd.set_option('display.max_columns', None)
     """
     Perform cross-validation and holdout validation on a given estimator.
@@ -74,8 +296,14 @@ def cv_and_holdout(estimator,X, y, test_size=0.27, stratify=None, random_state=4
         best_holdout_estimator: Best estimator based on holdout validation
     """
     #Validate refit metric was entered
-    if refit in scoring:
+    if refit in scoring and isinstance(scoring, dict): #assume refit scorer is one of the item in the dict
         refit_scorer = scoring[refit]
+    elif search_type=='halving_random' and isinstance(scoring,str): #can probably make this more dynamic at another time
+        refit=scoring
+        if scoring=='f1_weighted': 
+            refit_scorer = make_scorer(f1_score, average='weighted', zero_division='warn')
+        elif scoring=='precision_weighted':
+            refit_scorer = make_scorer(precision_score, average='weighted', zero_division='warn')
     else:
         raise ValueError(f"The refit metric {refit} was not found in the scoring_metrics dictionary.")
 
@@ -83,9 +311,12 @@ def cv_and_holdout(estimator,X, y, test_size=0.27, stratify=None, random_state=4
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=None, random_state=random_state)
 
     if search_type == 'grid':
-        search = GridSearchCV(estimator, param_dict, scoring=scoring, refit=refit, cv=cv, n_jobs=-1)
-    else:
-        search = RandomizedSearchCV(estimator, param_dict, n_iter=n_iter, scoring=scoring, refit=refit, random_state=random_state, verbose=verbose, cv=cv, n_jobs=-1)
+        search = GridSearchCV(estimator, param_dict, scoring=scoring, refit=refit, cv=cv, n_jobs=3)
+    elif search_type == 'random':
+        search = RandomizedSearchCV(estimator, param_dict, n_iter=n_iter, scoring=scoring, refit=refit, random_state=random_state, verbose=verbose, cv=cv, n_jobs=3)
+    elif search_type == 'halving_random':
+        search = HalvingRandomSearchCV(estimator,param_dict,factor=factor,scoring=scoring,refit=True,random_state=random_state,
+                                       verbose=verbose, cv=cv, n_jobs=3)
     
     search.fit(X_train, y_train)
     
@@ -199,227 +430,10 @@ def cv_and_holdout(estimator,X, y, test_size=0.27, stratify=None, random_state=4
     return ho_results, best_holdout_estimator
 
 
-def build_pipe_evaluate_bin_clf(models, X_train, y_train, X_test,y_test, transformer=None, scaler=None, selector=None):
-    """
-    Evaluate one or more machine learning models on given data.
-    
-    Parameters:
-    - models: dict or single  model. If dict, keys are model names and values are model instances.
-    - X_train, y_train, X_test, y_test: Training and test datasets.
-    - transformer: Data transformer (optional).
-    - scaler: Data scaler (optional).
-    - selector: Feature selector (optional).
-    
-    Returns:
-    - results_df: DataFrame containing performance metrics.
-    """
-    #Define dict of arrays to store results
-    results = {
-    'Model': [],
-    'Train Time': [],
-    'Inference Time': [],
-    'Train F1': [],
-    'Test F1': [],
-    'Train Precision': [],
-    'Test Precision': [],
-    'Train Recall': [],
-    'Test Recall': [],
-    'Train Accuracy': [],
-    'Test Accuracy': [],
-    #'Train ROC AUC': [],
-    #'Test ROC AUC': [],
-    }
-  
-    #If not a dict, make it a dict for uniform processing
-    if not isinstance(models, dict):
-        models = {
-            models.__class__.__name__ : models
-        }
-        
-    import time
-    fit_models=[]
-    for model_name, model in models.items():        
-        #build steps for pipeline
-        steps = []
-        if transformer is not None:
-            steps.append(('transformer', transformer))
-        if scaler is not None:
-            steps.append(('scaler', scaler))
-        if selector is not None:
-            steps.append(('selector', selector))
-        
-        #Take start timestamp for training
-        start_time = time.time()
-
-        #if it's a pipeline, or if it's a standalone model, just fit it
-        if isinstance(model, Pipeline) or (transformer is None and scaler is None and selector is None):
-            fit_model = model.fit(X_train, y_train)
-        #else add the model to the steps and then fit it 
-        else:
-            steps.append((model_name, model))
-            fit_model = Pipeline(steps).fit(X_train, y_train)
-            fit_models.append(fit_model)
-
-        #Take end timestamp for training
-        train_time = time.time() - start_time
-
-        #Take start timestamp for test inference
-        start_time = time.time()
-        y_test_pred = fit_model.predict(X_test)
-        #Take end timestamp for test inference 
-        inference_time = time.time() - start_time
-
-        #Compute various score metrics
-   
-        """# Encoding labels to numeric values, 1 for Positive Class and 0 for Negative class
-        from sklearn.preprocessing import LabelEncoder
-        label_encoder = LabelEncoder()
-        y_train_encoded = label_encoder.fit_transform(y_train)
-        y_test_encoded = label_encoder.transform(y_test)
-
-        # Train the model with the training data
-        model.fit(X_train, y_train_encoded)
-
-        # Predict probabilities for the test data
-        # The predicted probabilities are for class 1, hence the use of [:, 1]
-        y_train_probas = model.predict_proba(X_train)[:, 1]
-        y_test_probas = model.predict_proba(X_test)[:, 1]
-
-        # Now we can calculate the ROC AUC score using the true binary labels and the predicted probabilities
-        train_roc_auc = roc_auc_score(y_train_encoded, y_train_probas)
-        test_roc_auc = roc_auc_score(y_test_encoded, y_test_probas)"""
-
-        train_accuracy = fit_model.score(X_train, y_train)
-        test_accuracy = fit_model.score(X_test, y_test)
-
-        y_train_pred = fit_model.predict(X_train)
-        #y_test_preds = model.predict(X_test) (already computed)
-
-        train_precision = precision_score(y_train, y_train_pred, average='weighted')
-        train_recall = recall_score(y_train, y_train_pred, average='weighted')
-        train_f1 = f1_score(y_train, y_train_pred, average='weighted')    
-
-        test_precision = precision_score(y_test, y_test_pred, average='weighted')
-        test_recall = recall_score(y_test, y_test_pred, average='weighted')
-        test_f1 = f1_score(y_test, y_test_pred, average='weighted')
-
-        #Append results to arrays 
-        results['Model'].append(model_name)
-        results['Train Time'].append(train_time)
-        results['Inference Time'].append(inference_time)
-        results['Train F1'].append(train_f1)
-        results['Test F1'].append(test_f1)
-        results['Train Precision'].append(train_precision)
-        results['Test Precision'].append(test_precision)
-        results['Train Recall'].append(train_recall)
-        results['Test Recall'].append(test_recall)
-        results['Train Accuracy'].append(train_accuracy)
-        results['Test Accuracy'].append(test_accuracy)
-        """results['Train ROC AUC'].append(train_roc_auc)
-        results['Test ROC AUC'].append(test_roc_auc)"""
-    
-    #Create results dataframe using the arrays of metrics
-    results_df = pd.DataFrame(results)
-    return results_df, fit_models
-
-def build_transf_evaluate_bin_clf(models, X, y, test_size=0.25, stratify=None, rs=42,
-                                  ohe_cols=[], binary_cols=[], ordinal_cols=[], numerical_cols=[],scaler=StandardScaler(), selector=None):
-    X=X[ohe_cols+binary_cols+ordinal_cols+numerical_cols]
-    X_train, X_test, y_train, y_test = train_test_split(X,y, stratify=stratify, test_size=test_size, random_state=rs)
-    
-    transformer = ColumnTransformer(
-    transformers=[
-        ('ohe', OneHotEncoder(drop='if_binary', sparse_output=False, handle_unknown='ignore'), ohe_cols),
-        ('binary', BinaryEncoder(), binary_cols),
-        ('ordinal', OrdinalEncoder(), ordinal_cols)
-    ], remainder='passthrough')
-    return build_pipe_evaluate_bin_clf(models, X_train, y_train, X_test,y_test, 
-                                       transformer=transformer, 
-                                       scaler=scaler, 
-                                       selector=selector)
-
-"""def build_transf_evaluate_bin_clf(df_orig, target, models, dropna=False, test_size=0.25, stratify=None, rs=42,
-                                  ohe_cols=[], binary_cols=[], ordinal_cols=[], numerical_cols=[], selector=None):
-    df = df_orig.copy(deep=True)
-    df.dropna(inplace=dropna)     
-    X,y=df.drop(columns=target), df[target]
-    X=X[ohe_cols+binary_cols+ordinal_cols+numerical_cols]
-    X_train, X_test, y_train, y_test = train_test_split(X,y, stratify=stratify, test_size=0.25, random_state=42)
-    
-    transformer = ColumnTransformer(
-    transformers=[
-        ('ohe', OneHotEncoder(drop='if_binary', sparse_output=False, handle_unknown='ignore'), ohe_cols),
-        ('binary', BinaryEncoder(), binary_cols),
-        ('ordinal', OrdinalEncoder(), ordinal_cols)
-    ], remainder='passthrough')
-    return build_pipe_evaluate_bin_clf(models, X_train, y_train, X_test,y_test, 
-                                       transformer=transformer, 
-                                       scaler=StandardScaler(), 
-                                       selector=selector)"""
 
 
-
-def get_lgr_pipe_coefs(pipe, transf_name='transformer', scaler_name='scaler', selector_name=None):
-    #Define coefficients and intercept
-    steps_list = list(pipe.named_steps.items())
-    model_name, _ = steps_list[-1]
-    my_coefs = pipe.named_steps[model_name].coef_[0]
-    intercept = pipe.named_steps[model_name].intercept_
-    #Features from Transformer
-    my_features = pipe.named_steps[transf_name].get_feature_names_out()
-    
-    if selector_name:
-        #Create mask for remaining features after selectfrommodel 
-        remaining_feature_mask = pipe.named_steps.selector.get_support()
-        #Set remaining features
-        remaining_features = np.array(my_features)[remaining_feature_mask]
-        
-        # Get the means and standard deviations
-        scaler = pipe.named_steps[scaler_name]
-        means = scaler.mean_[remaining_feature_mask]
-        std_devs = scaler.scale_[remaining_feature_mask]  # standard deviation
-        
-    else: 
-        # If there is no selector, all features remain
-        remaining_features = my_features
-        # Get the means and standard deviations for all features
-        scaler = pipe.named_steps[scaler_name]
-        means = scaler.mean_
-        std_devs = scaler.scale_
-        
-    # Create the dataframe with coefficients, means, and std_devs
-    interpretation_df = pd.DataFrame({
-    'coefs': my_coefs,
-    'means': means,
-    'std_devs': std_devs, 
-    'exp_unscaled_coefs': np.exp(my_coefs/std_devs),
-    }, index=remaining_features)
-    
-    #Sort the dataframe
-    return interpretation_df.sort_values(by='exp_unscaled_coefs', ascending=False)
-
-
-def select_all_col_names_except(df, exclude_list):
-    """
-    Select all column names from a DataFrame except those specified in an exclusion list.
-    
-    Parameters:
-    - df: pandas DataFrame
-    - exclude_list: list of column names to exclude
-    
-    Returns:
-    - List of column names to keep
-    """
-    # List of all columns
-    all_columns = df.columns.tolist()
-    # Columns to exclude
-    exclude_columns = exclude_list
-    # Columns to keep
-    return list(set(all_columns) - set(exclude_columns))
-
-
-def run_pipelines(pipe_param_pairs, X, y, test_size = 0.25, stratify=None, random_state=42, search_type='random', 
-                   scoring=None, refit=None, holdout_tolerance=0, verbose=0, cv=5, n_iter=10, summary=True):
+def run_pipelines(pipe_param_pairs, X, y, test_size = 0.25, stratify=None, random_state=42, search_type='halving_random', 
+                   scoring=None, refit=None, holdout_tolerance=0, verbose=0, cv=5, n_iter=10, factor=3, summary=True):
     """
     Run multiple pipelines with different hyperparameter settings into cv_and_holdout function and collect the results.
     
@@ -447,6 +461,8 @@ def run_pipelines(pipe_param_pairs, X, y, test_size = 0.25, stratify=None, rando
         - Dataframe containing the performance metrics for the best model from each pipe/param pair
         - An array of the best models 
     """
+    if search_type=='halving_random' and isinstance(scoring,str):
+        refit=scoring
     output, models= [], []
     for pipe, params in pipe_param_pairs:
         #X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=None, random_state=random_state)
@@ -463,7 +479,8 @@ def run_pipelines(pipe_param_pairs, X, y, test_size = 0.25, stratify=None, rando
                                 holdout_tolerance=holdout_tolerance,
                                 cv=cv,
                                 verbose=verbose, 
-                                summary=summary)
+                                summary=summary,
+                                factor=factor)
        #Create summary dict of best model from each pipe/param pair
         output_row = {'model': pipe.steps[-1][0], 
                       f'train {refit} score': result.loc[0, f'train_{refit}'],
@@ -482,6 +499,141 @@ def run_pipelines(pipe_param_pairs, X, y, test_size = 0.25, stratify=None, rando
     display(output_df.style.hide_index())
 
     return output_df, models
+
+def build_and_run_pipes (df,target,scoring_metrics, search_type,
+                   num_imputer, 
+                   num_imputer_params, 
+                   poly, 
+                   poly_params, 
+                   num_cols,
+                   
+                   cat_imputer, 
+                   cat_imputer_params, 
+                   cat_impute_cols,  
+                   
+                   ohe_cols, bin_cols, ord_cols, 
+                   
+                   oversampler, over_params,
+                   undersampler, under_params, 
+                   
+                   scaler, 
+                   selector, selector_params,
+                   estimator_dicts,
+                   
+                   refit,cv=5, n_iter=10, summary=True, verbose=1,
+                   test_size=0.25, stratify=None,rs=42,factor=3):
+    X = df.copy(deep=True)[ohe_cols+bin_cols+ord_cols+num_cols]
+    y = df[target]
+
+    num_pp_steps=[]
+    if num_imputer is not None or poly is not None:
+        if num_imputer is not None:
+            num_pp_steps.append(num_imputer)
+        if poly is not None: 
+            num_pp_steps.append(poly)
+            
+    cat_pp_steps=[]
+    if cat_imputer is not None: 
+        cat_pp_steps.append(cat_imputer)
+        
+    transformer_list=[]
+    if num_pp_steps != []: 
+        transformer_list.append( ('num', Pipeline(steps=num_pp_steps), num_cols) )
+    if cat_pp_steps !=[]:
+        transformer_list.append( ('cat', Pipeline(steps=cat_pp_steps), cat_impute_cols) )
+    
+    if ohe_cols is not None: 
+        transformer_list.append(('ohe', OneHotEncoder(), ohe_cols))
+
+    if bin_cols is not None: 
+        transformer_list.append(('bin', BinaryEncoder(), bin_cols))        
+
+    if ord_cols is not None: 
+        transformer_list.append(('ord', OrdinalEncoder(), ord_cols))
+    
+    transformer=None
+    if transformer_list!=[]:
+        transformer=ColumnTransformer(transformers=transformer_list)
+    """
+    transformer=ColumnTransformer(transformers=[
+        ('num', Pipeline(steps=num_pp_steps), num_cols) if num_pp_steps is not None else None,
+        ('cat', Pipeline(steps=cat_pp_steps), cat_impute_cols) if cat_pp_steps is not None else None,
+        ('ohe', OneHotEncoder(), ohe_cols),
+        ('ord', OrdinalEncoder(), ord_cols),
+        ('bin', BinaryEncoder(), bin_cols)
+    ])"""
+    fixed_pipe_steps=[]
+    if transformer is not None:
+        fixed_pipe_steps.append(('transformer', transformer))
+
+    if oversampler is not None:
+        fixed_pipe_steps.append(oversampler)
+        
+    if undersampler is not None:
+        fixed_pipe_steps.append(undersampler)
+    
+    if scaler is not None: 
+        fixed_pipe_steps.append(scaler)    
+    
+    if selector is not None: 
+        fixed_pipe_steps.append(selector)
+    
+    pipe_param_pairs=[]
+    for est_dict in estimator_dicts: 
+        est_tuple, est_params=est_dict['est_tuple'], est_dict['est_params']    
+        pipe_steps=list(fixed_pipe_steps)    
+        pipe_steps.append( (est_tuple) )
+    
+        pipe = ImbPipeline(steps=pipe_steps) if oversampler is not None or undersampler is not None else Pipeline(steps=pipe_steps)
+        #pp_params = num_imputer_params | cat_imputer_params | poly_params | over_params | under_params | selector_params
+        pp_params={}
+        if num_imputer_params is not None: 
+            pp_params=pp_params | num_imputer_params
+        if cat_imputer_params is not None: 
+            pp_params=pp_params | cat_imputer_params
+        if poly_params is not None:
+            pp_params=pp_params | poly_params
+        if over_params is not None:
+            pp_params=pp_params | over_params
+        if under_params is not None:
+            pp_params=pp_params | under_params
+        if selector_params is not None:
+            pp_params=pp_params | selector_params
+        
+        pipe_param_pairs.append( (pipe, pp_params | est_params) )
+            
+    results, models = run_pipelines(pipe_param_pairs = pipe_param_pairs,
+             X=X,
+             y=y,
+             test_size=test_size,
+             stratify=stratify,
+             random_state=rs,
+             search_type=search_type,
+             scoring=scoring_metrics,
+             refit=refit,
+             holdout_tolerance=0,
+             verbose=verbose,
+             cv=cv,
+             n_iter=n_iter, 
+             summary=summary, 
+             factor=factor)
+    
+    return results, models          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def custom_imputer_col(X, col_to_impute, missing_value, pipe_step= ('lgr', LogisticRegression(n_jobs=-1, max_iter=1000, random_state=42))):
     """
@@ -601,122 +753,3 @@ def starter_pipes(df, target_col, regressor, X_train= None, imbalanced=False, ra
             'knn__metric': ['minkowski', 'euclidean', 'manhattan']  
             }    
             
-
-def build_and_run_pipes (df,target,scoring_metrics,
-                   num_imputer, 
-                   num_imputer_params, 
-                   poly, 
-                   poly_params, 
-                   num_cols,
-                   
-                   cat_imputer, 
-                   cat_imputer_params, 
-                   cat_impute_cols,  
-                   
-                   ohe_cols, bin_cols, ord_cols, 
-                   
-                   oversampler, over_params,
-                   undersampler, under_params, 
-                   
-                   scaler, 
-                   selector, selector_params,
-                   estimator_dicts,
-                   
-                   refit,cv=5, n_iter=10, summary=True, verbose=1,
-                   test_size=0.25, stratify=None,rs=42):
-    X = df.copy()[ohe_cols+bin_cols+ord_cols+num_cols]
-    y = df[target]
-
-    num_pp_steps=[]
-    if num_imputer is not None or poly is not None:
-        if num_imputer is not None:
-            num_pp_steps.append(num_imputer)
-        if poly is not None: 
-            num_pp_steps.append(poly)
-            
-    cat_pp_steps=[]
-    if cat_imputer is not None: 
-        cat_pp_steps.append(cat_imputer)
-        
-    transformer_list=[]
-    if num_pp_steps != []: 
-        transformer_list.append( ('num', Pipeline(steps=num_pp_steps), num_cols) )
-    if cat_pp_steps !=[]:
-        transformer_list.append( ('cat', Pipeline(steps=cat_pp_steps), cat_impute_cols) )
-    
-    if ohe_cols is not None: 
-        transformer_list.append(('ohe', OneHotEncoder(), ohe_cols))
-
-    if bin_cols is not None: 
-        transformer_list.append(('bin', BinaryEncoder(), bin_cols))        
-
-    if ord_cols is not None: 
-        transformer_list.append(('ord', OrdinalEncoder(), ord_cols))
-    
-    transformer=None
-    if transformer_list!=[]:
-        transformer=ColumnTransformer(transformers=transformer_list)
-    """
-    transformer=ColumnTransformer(transformers=[
-        ('num', Pipeline(steps=num_pp_steps), num_cols) if num_pp_steps is not None else None,
-        ('cat', Pipeline(steps=cat_pp_steps), cat_impute_cols) if cat_pp_steps is not None else None,
-        ('ohe', OneHotEncoder(), ohe_cols),
-        ('ord', OrdinalEncoder(), ord_cols),
-        ('bin', BinaryEncoder(), bin_cols)
-    ])"""
-    fixed_pipe_steps=[]
-    if transformer is not None:
-        fixed_pipe_steps.append(('transformer', transformer))
-
-    if oversampler is not None:
-        fixed_pipe_steps.append(oversampler)
-        
-    if undersampler is not None:
-        fixed_pipe_steps.append(undersampler)
-    
-    if scaler is not None: 
-        fixed_pipe_steps.append(scaler)    
-    
-    if selector is not None: 
-        fixed_pipe_steps.append(selector)
-    
-    pipe_param_pairs=[]
-    for est_dict in estimator_dicts: 
-        est_tuple, est_params=est_dict['est_tuple'], est_dict['est_params']    
-        pipe_steps=list(fixed_pipe_steps)    
-        pipe_steps.append( (est_tuple) )
-    
-        pipe = ImbPipeline(steps=pipe_steps) if oversampler is not None or undersampler is not None else Pipeline(steps=pipe_steps)
-        #pp_params = num_imputer_params | cat_imputer_params | poly_params | over_params | under_params | selector_params
-        pp_params={}
-        if num_imputer_params is not None: 
-            pp_params=pp_params | num_imputer_params
-        if cat_imputer_params is not None: 
-            pp_params=pp_params | cat_imputer_params
-        if poly_params is not None:
-            pp_params=pp_params | poly_params
-        if over_params is not None:
-            pp_params=pp_params | over_params
-        if under_params is not None:
-            pp_params=pp_params | under_params
-        if selector_params is not None:
-            pp_params=pp_params | selector_params
-        
-        pipe_param_pairs.append( (pipe, pp_params | est_params) )
-            
-    results, models = run_pipelines(pipe_param_pairs = pipe_param_pairs,
-             X=X,
-             y=y,
-             test_size=test_size,
-             stratify=stratify,
-             random_state=rs,
-             search_type='random',
-             scoring=scoring_metrics,
-             refit=refit,
-             holdout_tolerance=0,
-             verbose=verbose,
-             cv=cv,
-             n_iter=n_iter, 
-             summary=summary)
-    
-    return results, models          

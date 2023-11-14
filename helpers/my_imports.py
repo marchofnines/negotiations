@@ -16,8 +16,8 @@ import plotly.graph_objects as go
 import plotly.io as pio
 pio.renderers.default='notebook'
 
-from scipy.stats import entropy, randint, uniform
-import scipy.stats as stats
+import math
+from scipy.stats import entropy, expon, randint, uniform
 from scipy.linalg import svd
 
 from sklearn.experimental import enable_halving_search_cv, enable_iterative_imputer
