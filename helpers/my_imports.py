@@ -22,6 +22,7 @@ from scipy.linalg import svd
 
 from sklearn.experimental import enable_halving_search_cv, enable_iterative_imputer
 from sklearn.impute import SimpleImputer, IterativeImputer, KNNImputer
+from category_encoders.cat_boost import CatBoostEncoder
 from category_encoders import JamesSteinEncoder, BinaryEncoder
 from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler, MaxAbsScaler, QuantileTransformer
 from sklearn.preprocessing import PolynomialFeatures, OneHotEncoder, OrdinalEncoder, LabelBinarizer
@@ -38,7 +39,8 @@ from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.multiclass import OneVsOneClassifier
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier, export_text, plot_tree
 from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, BaggingClassifier, AdaBoostClassifier
+
 from sklearn.pipeline import Pipeline
 from sklearn.model_selection import cross_val_score , train_test_split
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, HalvingGridSearchCV, HalvingRandomSearchCV
@@ -55,11 +57,13 @@ from imblearn.under_sampling import RandomUnderSampler
 from collections import Counter
 
 from sklearn import set_config
+import warnings
+from sklearn.exceptions import ConvergenceWarning
+
+#General Settings
 set_config(display="diagram")
 #set_config("figure")
-import warnings
-warnings.filterwarnings('ignore')
+pd.set_option('display.max_columns', None)
 
-
-from sklearn.exceptions import ConvergenceWarning
-warnings.filterwarnings("ignore", category=ConvergenceWarning)
+#warnings.filterwarnings('ignore')
+#warnings.filterwarnings("ignore", category=ConvergenceWarning)

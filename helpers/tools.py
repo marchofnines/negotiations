@@ -2,44 +2,134 @@ import sys
 sys.path.append('/Users/basilhaddad/jupyter/capstone/')
 from importlib import reload
 from helpers.my_imports import * 
+from helpers import preprocessing as pp
 from IPython.core.display import HTML
 
-def reorder_cols_in(df, in_str, after=True):
+import warnings
+
+
+def vif(data, impute_strategy='most_frequent', dropna=False):
+  vif_dict = {}
+  df = data.copy(deep=True).select_dtypes(include=['number'])
+  exogs=df.columns
+  
+  
+  if dropna: 
+      df=df.dropna()
+  else:
+    #Define imputer pipe
+    if impute_strategy is not None:
+        imputer_pipe = Pipeline([
+            ('imputer', SimpleImputer(strategy=impute_strategy)),
+            ])
+        # Apply the imputation
+        df = pd.DataFrame(imputer_pipe.fit_transform(df), columns=exogs)
+  
+  for exog in exogs:
+    not_exog = [i for i in exogs if i !=exog]
+    # split the dataset, one independent variable against all others
+    X, y = df[not_exog], df[exog]
+
+    # fit the model and obtain R^2
+    r_squared = LinearRegression().fit(X,y).score(X,y)
+
+    # compute the VIF
+    vif = 1/(1-r_squared)
+    vif_dict[exog] = vif
+
+  return pd.DataFrame({"VIF": vif_dict}).sort_values(by='VIF', ascending = False)
+
+
+def my_permutation_importance(fit_models, X_test, y_test, scoring, n_repeats=10, rs=42): 
+    for fit_model in fit_models:
+        r = permutation_importance(fit_model, X_test, y_test, n_repeats=10, random_state=42, 
+                               scoring = scoring,
+                               )
+        pi_result = pd.DataFrame({"Variables":X_test.columns,"Score":r.importances_mean}).sort_values(by="Score",ascending = False)
+        
+        # Sort by score and then transpose the DataFrame
+        pi_result = pi_result.set_index("Variables").T
+
+        # Extract the name of the current model for display purposes
+        model_name = fit_model.__class__.__name__ if not hasattr(fit_model, 'named_steps') else next(reversed(fit_model.named_steps.items()))[0]
+        
+        # Display the model name and its permutation importance
+        print(f"{model_name}:")
+        
+        # Display the model name and its permutation importance
+        display(pi_result)
+
+
+def my_permutation_importance2(fit_models, X_test, y_test, scoring, n_repeats=10, rs=42):
     """
-    Reorders the columns of a DataFrame based on substring matches, moving them either to the beginning or end.
-    
+    Calculates and displays the permutation importance of features for a list of fitted models.
+
     Parameters:
-    - df (pd.DataFrame): The DataFrame whose columns need to be reordered.
-    - in_str (str, list): The substring(s) to match against column names.
-    - after (bool): Whether to move the matched columns after the others. If False, moves them before.
-    
-    Returns:
-    - pd.DataFrame: A DataFrame with reordered columns.
+    fit_models (list): A list of fitted machine learning models.
+    X_test (DataFrame): The test dataset used for evaluating the models.
+    y_test (Series or array-like): The target values for the test dataset.
+    scoring (list): A list of scoring metrics to be used for evaluating feature importance.
+    rs (int, optional): The random state seed used in permutation importance calculation. Defaults to 42.
+
+    This function calculates the permutation importance of each feature in the test dataset for each 
+    model in `fit_models` using the specified `scoring` metrics. It then filters out rows that only contain
+    zero means and stds.  The results are displayed for each model with the features sorted by their importance in descending order.
     """
+    # Store the feature names from the test dataset
+    feature_names = X_test.columns
     
-    #check if in_str belong to column name (handle both lists and individual arguments)
-    if isinstance(in_str, list):
-        grouped_cols = []
-        for s in in_str:
-            grouped_cols += [col for col in df.columns if s in col]
-    else:
-        grouped_cols = [col for col in df.columns if in_str in col]
-    #group remaining columns
-    remaining_cols = [col for col in df.columns if col not in grouped_cols]
-    #order column groups
-    
-    #if after, place grouped cols after remaining cols and vice versa
-    if after:
-        new_col_order = remaining_cols + grouped_cols
-    else: 
-        new_col_order = grouped_cols + remaining_cols
-    
-    return df[new_col_order]
+    # Display Heading
+    display(HTML(f'<h3>Permuation Results: </h3>'))
+
+    # Iterate over each model in the list of fitted models
+    for fit_model in fit_models:
+        # Calculate permutation importance for the current model
+        # using the provided test dataset and scoring metrics
+        r_multi = permutation_importance(fit_model, X_test, y_test, n_repeats=n_repeats, random_state=rs, scoring=scoring)
+
+        # Initialize a dictionary to hold the mean and standard deviation of feature importances
+        feature_importance_dict = {}
+
+        # Process the permutation importance results for each scoring metric
+        for metric in r_multi:
+            r = r_multi[metric]
+
+            # Lists to store the mean and standard deviation of importances for each feature
+            importances_mean = []
+            importances_std = []
+            
+            # Sort features by their mean importance in descending order and iterate over them
+            for i in r.importances_mean.argsort()[::-1]:
+                # Check if the feature's importance is statistically significant
+                if r.importances_mean[i] - 2 * r.importances_std[i] > 0:
+                    importances_mean.append(r.importances_mean[i])
+                    importances_std.append(r.importances_std[i])
+                else:
+                    # If importance is not significant, append 0 or NaN
+                    importances_mean.append(0)
+                    importances_std.append(0)
+            
+            # Add the computed mean and standard deviation to the dictionary for the current metric
+            feature_importance_dict[f'{metric}_mean'] = importances_mean
+            feature_importance_dict[f'{metric}_std'] = importances_std
+
+        # Extract the name of the current model for display purposes
+        if hasattr(fit_model, 'named_steps'):
+            model_name, _ = next(reversed(fit_model.named_steps.items()))
+
+        # Convert the importance data dictionary into a DataFrame for easier visualization
+        feature_importance_df = pd.DataFrame(feature_importance_dict, index=feature_names)
+
+        # Filter the DataFrame to include rows containing non-zero values
+        filtered_df = feature_importance_df[(feature_importance_df > 0).any(axis=1)]
+        
+        #Display the results for the current model
+        if hasattr(fit_model, 'named_steps'):
+            display(HTML(f'<h4>{model_name} </h4>'))
+        display(filtered_df)  # Display the filtered DataFrame
 
 
-
-
-def build_pipe_evaluate_bin_clf(models, X_train, y_train, X_test,y_test, transformer=None, scaler=None, selector=None):
+def build_pipe_evaluate_bin_clf(models, X, y, test_size=0.25, stratify=True, rs=42, drop_cols=[], transformer=None, scaler=None, selector=None, summary=False):
     """
     Evaluate one or more machine learning models on given data.
     
@@ -69,13 +159,22 @@ def build_pipe_evaluate_bin_clf(models, X_train, y_train, X_test,y_test, transfo
     #'Train ROC AUC': [],
     #'Test ROC AUC': [],
     }
-    
+ 
     #If not a dict, make it a dict for uniform processing
     if not isinstance(models, dict):
         models = {
             models.__class__.__name__ : models
         }
-        
+           
+    if drop_cols !=[]:
+        X=X.copy(deep=True).drop(columns=drop_cols)
+ 
+    # Split Data into Train and Test Sets
+    if stratify:
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=y, random_state=rs)
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=None, random_state=rs)
+               
     import time
     fit_models=[]
     for model_name, model in models.items():      
@@ -110,25 +209,6 @@ def build_pipe_evaluate_bin_clf(models, X_train, y_train, X_test,y_test, transfo
         inference_time = time.time() - start_time
 
         #Compute various score metrics
-   
-        """# Encoding labels to numeric values, 1 for Positive Class and 0 for Negative class
-        from sklearn.preprocessing import LabelEncoder
-        label_encoder = LabelEncoder()
-        y_train_encoded = label_encoder.fit_transform(y_train)
-        y_test_encoded = label_encoder.transform(y_test)
-
-        # Train the model with the training data
-        model.fit(X_train, y_train_encoded)
-
-        # Predict probabilities for the test data
-        # The predicted probabilities are for class 1, hence the use of [:, 1]
-        y_train_probas = model.predict_proba(X_train)[:, 1]
-        y_test_probas = model.predict_proba(X_test)[:, 1]
-
-        # Now we can calculate the ROC AUC score using the true binary labels and the predicted probabilities
-        train_roc_auc = roc_auc_score(y_train_encoded, y_train_probas)
-        test_roc_auc = roc_auc_score(y_test_encoded, y_test_probas)"""
-
         train_accuracy = fit_model.score(X_train, y_train)
         test_accuracy = fit_model.score(X_test, y_test)
 
@@ -160,15 +240,30 @@ def build_pipe_evaluate_bin_clf(models, X_train, y_train, X_test,y_test, transfo
 
     #Create results dataframe using the arrays of metrics
     results_df = pd.DataFrame(results)
+    if summary:
+        display(results_df)
     return results_df, fit_models
 
-def build_transf_evaluate_bin_clf(models, X, y, test_size=0.25, stratify=None, rs=42,
-                                  ohe_cols=[], binary_cols=[], ordinal_cols=[], numerical_cols=[],scaler=StandardScaler(), selector=None):
-    X=X[ohe_cols+binary_cols+ordinal_cols+numerical_cols]
-    X_train, X_test, y_train, y_test = train_test_split(X,y, stratify=stratify, test_size=test_size, random_state=rs)
+
+def build_transf_evaluate_bin_clf(models, X, y, test_size=0.25, stratify=False, rs=42,
+                                  ohe_cols=[], binary_cols=[], ordinal_cols=[], numerical_cols=[],
+                                  scaler=StandardScaler(), selector=None):
+    
+    X=X.copy(deep=True)[ohe_cols+binary_cols+ordinal_cols+numerical_cols]
+    
+    # Split Data into Train and Test Sets
+    if stratify:
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=y, random_state=rs)
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=None, random_state=rs)
+    
+    simple_numeric_pp = Pipeline([
+    ('imputer', SimpleImputer(strategy='most_frequent')),
+    ])
     
     transformer = ColumnTransformer(
     transformers=[
+        ('num_pp', simple_numeric_pp, numerical_cols),
         ('ohe', OneHotEncoder(drop='if_binary', sparse_output=False, handle_unknown='ignore'), ohe_cols),
         ('binary', BinaryEncoder(), binary_cols),
         ('ordinal', OrdinalEncoder(), ordinal_cols)
@@ -178,95 +273,9 @@ def build_transf_evaluate_bin_clf(models, X, y, test_size=0.25, stratify=None, r
                                        scaler=scaler, 
                                        selector=selector)
 
-"""def build_transf_evaluate_bin_clf(df_orig, target, models, dropna=False, test_size=0.25, stratify=None, rs=42,
-                                  ohe_cols=[], binary_cols=[], ordinal_cols=[], numerical_cols=[], selector=None):
-    df = df_orig.copy(deep=True)
-    df.dropna(inplace=dropna)     
-    X,y=df.drop(columns=target), df[target]
-    X=X[ohe_cols+binary_cols+ordinal_cols+numerical_cols]
-    X_train, X_test, y_train, y_test = train_test_split(X,y, stratify=stratify, test_size=0.25, random_state=42)
-    
-    transformer = ColumnTransformer(
-    transformers=[
-        ('ohe', OneHotEncoder(drop='if_binary', sparse_output=False, handle_unknown='ignore'), ohe_cols),
-        ('binary', BinaryEncoder(), binary_cols),
-        ('ordinal', OrdinalEncoder(), ordinal_cols)
-    ], remainder='passthrough')
-    return build_pipe_evaluate_bin_clf(models, X_train, y_train, X_test,y_test, 
-                                       transformer=transformer, 
-                                       scaler=StandardScaler(), 
-                                       selector=selector)"""
-
-
-
-def get_lgr_pipe_coefs(pipe, transf_name='transformer', scaler_name='scaler', selector_name=None):
-    #Define coefficients and intercept
-    steps_list = list(pipe.named_steps.items())
-    model_name, _ = steps_list[-1]
-    my_coefs = pipe.named_steps[model_name].coef_[0]
-    intercept = pipe.named_steps[model_name].intercept_
-    #Features from Transformer
-    my_features = pipe.named_steps[transf_name].get_feature_names_out()
-    
-    if selector_name:
-        #Create mask for remaining features after selectfrommodel 
-        remaining_feature_mask = pipe.named_steps.selector.get_support()
-        #Set remaining features
-        remaining_features = np.array(my_features)[remaining_feature_mask]
-        
-        # Get the means and standard deviations
-        scaler = pipe.named_steps[scaler_name]
-        means = scaler.mean_[remaining_feature_mask]
-        std_devs = scaler.scale_[remaining_feature_mask]  # standard deviation
-        
-    else: 
-        # If there is no selector, all features remain
-        remaining_features = my_features
-        # Get the means and standard deviations for all features
-        scaler = pipe.named_steps[scaler_name]
-        means = scaler.mean_
-        std_devs = scaler.scale_
-        
-    # Create the dataframe with coefficients, means, and std_devs
-    interpretation_df = pd.DataFrame({
-    'coefs': my_coefs,
-    'means': means,
-    'std_devs': std_devs, 
-    'exp_unscaled_coefs': np.exp(my_coefs/std_devs),
-    }, index=remaining_features)
-    
-    #Sort the dataframe
-    return interpretation_df.sort_values(by='exp_unscaled_coefs', ascending=False)
-
-
-def select_all_col_names_except(df, exclude_list):
-    """
-    Select all column names from a DataFrame except those specified in an exclusion list.
-    
-    Parameters:
-    - df: pandas DataFrame
-    - exclude_list: list of column names to exclude
-    
-    Returns:
-    - List of column names to keep
-    """
-    # List of all columns
-    all_columns = df.columns.tolist()
-    # Columns to exclude
-    exclude_columns = exclude_list
-    # Columns to keep
-    return list(set(all_columns) - set(exclude_columns))
-
-
-
-"""def reinit_data(df_orig, target, dropna=False, test_size=0.25, stratify=None, rs=42): 
-    df = df_orig.copy(deep=True)
-    df.dropna(inplace=dropna)     
-    X,y=df.drop(columns=target), df[target]
-    X_train, X_test, y_train, y_test = train_test_split(X,y, stratify=stratify, test_size=test_size, random_state=rs)"""
 
 def cv_and_holdout(estimator,X, y, test_size=0.25, stratify=None, random_state=42, search_type='halving_random', param_dict=None,
-                  scoring=None, refit=None, holdout_tolerance=0, verbose=0, cv=5, n_iter=10, factor=3, summary=True):
+                  scoring=None, refit=None, refit_scorer=None, holdout_tolerance=0, verbose=0, cv=5, n_iter=10, factor=3, summary=True):
     pd.set_option('display.max_columns', None)
     """
     Perform cross-validation and holdout validation on a given estimator.
@@ -296,28 +305,29 @@ def cv_and_holdout(estimator,X, y, test_size=0.25, stratify=None, random_state=4
         best_holdout_estimator: Best estimator based on holdout validation
     """
     #Validate refit metric was entered
-    if refit in scoring and isinstance(scoring, dict): #assume refit scorer is one of the item in the dict
-        refit_scorer = scoring[refit]
-    elif search_type=='halving_random' and isinstance(scoring,str): #can probably make this more dynamic at another time
-        refit=scoring
-        if scoring=='f1_weighted': 
-            refit_scorer = make_scorer(f1_score, average='weighted', zero_division='warn')
-        elif scoring=='precision_weighted':
-            refit_scorer = make_scorer(precision_score, average='weighted', zero_division='warn')
-    else:
-        raise ValueError(f"The refit metric {refit} was not found in the scoring_metrics dictionary.")
 
+    if isinstance(scoring, dict): #assume refit scorer is one of the item in the dict
+        if refit in scoring:  
+            refit_scorer = scoring[refit]
+        else: 
+            raise ValueError(f"The refit metric {refit} was not found in the scoring_metrics dictionary.")
+    else: 
+        refit = scoring
+        refit_scorer = refit_scorer
+            
     # Step 1: Split Data into Train and Test Sets and Run GridSearchCV or RandomizedSearchCV
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=None, random_state=random_state)
+    if stratify is None:
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=None, random_state=random_state)
+    else:
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=y, random_state=random_state)
 
-    if search_type == 'grid':
-        search = GridSearchCV(estimator, param_dict, scoring=scoring, refit=refit, cv=cv, n_jobs=3)
-    elif search_type == 'random':
-        search = RandomizedSearchCV(estimator, param_dict, n_iter=n_iter, scoring=scoring, refit=refit, random_state=random_state, verbose=verbose, cv=cv, n_jobs=3)
-    elif search_type == 'halving_random':
+    if 'grid' in search_type.lower():
+        search = GridSearchCV(estimator, param_dict, scoring=scoring, refit=refit, cv=cv, n_jobs=-1)
+    elif 'halving' in search_type.lower():
         search = HalvingRandomSearchCV(estimator,param_dict,factor=factor,scoring=scoring,refit=True,random_state=random_state,
-                                       verbose=verbose, cv=cv, n_jobs=3)
-    
+                                       verbose=verbose, cv=cv, n_jobs=-1)
+    elif 'random' in search_type.lower():
+        search = RandomizedSearchCV(estimator, param_dict, n_iter=n_iter, scoring=scoring, refit=refit, random_state=random_state, verbose=verbose, cv=cv, n_jobs=-1)
     search.fit(X_train, y_train)
     
     # Step 2: Build Custom Results DataFrame based on cv_results_
@@ -372,7 +382,7 @@ def cv_and_holdout(estimator,X, y, test_size=0.25, stratify=None, random_state=4
     #Sort results by descending CV Rank and reorder columns for visibility
     cv_results = cv_results.sort_values(by=[cv_rank_refit_col, ho_test_score_refit_col] , ascending=[True, False])  
     #Show most important columns first
-    cv_results= reorder_cols_in(cv_results, [cv_rank_refit_col, cv_test_score_refit_col, 'is_overfit', ho_train_score_refit_col, ho_test_score_refit_col, 
+    cv_results= pp.reorder_cols_in(cv_results, [cv_rank_refit_col, cv_test_score_refit_col, 'is_overfit', ho_train_score_refit_col, ho_test_score_refit_col, 
                                                'mean', 'param'] , after=False) 
     
     
@@ -383,12 +393,13 @@ def cv_and_holdout(estimator,X, y, test_size=0.25, stratify=None, random_state=4
     ho_results[ho_rank_refit_col] = ho_results.index + 1  
       
     #Show most important columns first
-    ho_results= reorder_cols_in(ho_results, [cv_rank_refit_col, cv_test_score_refit_col, 'is_overfit', ho_train_score_refit_col, ho_test_score_refit_col,  
+    ho_results= pp.reorder_cols_in(ho_results, [cv_rank_refit_col, cv_test_score_refit_col, 'is_overfit', ho_train_score_refit_col, ho_test_score_refit_col,  
                                               'mean', 'param'] , after=False) #'mean_fit_time', 'mean_score_time'
 
     #Step 6: Display Best CV Model Details and Best Holdout Model Details
     if summary:
-        display(HTML(f'<h3>Results for {estimator.steps[-1][0]}: </h3>'))
+        if hasattr(estimator, 'steps'):
+            display(HTML(f'<h3>Results for {estimator.steps[-1][0]}: </h3>'))
         display(HTML(f'<h5>Models ranked by descending {cv_rank_refit_col}</h5>'))
         display(cv_results.iloc[:4,:].style.hide_index())
         display(HTML(f'<h5>Models ranked by overfit status and descending holdout {ho_test_score_refit_col}</h5>'))
@@ -430,9 +441,7 @@ def cv_and_holdout(estimator,X, y, test_size=0.25, stratify=None, random_state=4
     return ho_results, best_holdout_estimator
 
 
-
-
-def run_pipelines(pipe_param_pairs, X, y, test_size = 0.25, stratify=None, random_state=42, search_type='halving_random', 
+def run_pipelines(pipe_param_pairs, X, y, test_size = 0.25, stratify=None, random_state=42, search_type='random', 
                    scoring=None, refit=None, holdout_tolerance=0, verbose=0, cv=5, n_iter=10, factor=3, summary=True):
     """
     Run multiple pipelines with different hyperparameter settings into cv_and_holdout function and collect the results.
@@ -503,52 +512,66 @@ def run_pipelines(pipe_param_pairs, X, y, test_size = 0.25, stratify=None, rando
 def build_and_run_pipes (df,target,scoring_metrics, search_type,
                    num_imputer, 
                    num_imputer_params, 
+                   num_transformer, 
+                   num_transformer_params,
                    poly, 
                    poly_params, 
                    num_cols,
                    
                    cat_imputer, 
                    cat_imputer_params, 
-                   cat_impute_cols,  
+                   cat_combiner,
+                   cat_combiner_params,
+                   cat_encoder, 
+                   cat_encoder_params,
+                   cat_cols,  
+                   ohe_drop,
+                   ohe_cols, 
+                   ord_cols, 
                    
-                   ohe_cols, bin_cols, ord_cols, 
-                   
-                   oversampler, over_params,
+                   oversampler, 
+                   over_params,
                    undersampler, under_params, 
                    
                    scaler, 
-                   selector, selector_params,
+                   selector, 
+                   selector_params,
+                   
                    estimator_dicts,
                    
-                   refit,cv=5, n_iter=10, summary=True, verbose=1,
+                   refit,
+                   cv=5, n_iter=10, summary=True, verbose=1,
                    test_size=0.25, stratify=None,rs=42,factor=3):
-    X = df.copy(deep=True)[ohe_cols+bin_cols+ord_cols+num_cols]
+    X = df[ohe_cols+ord_cols+cat_cols+num_cols]
     y = df[target]
 
     num_pp_steps=[]
-    if num_imputer is not None or poly is not None:
+    if num_imputer is not None or num_transformer is not None or poly is not None:
         if num_imputer is not None:
             num_pp_steps.append(num_imputer)
+        if num_transformer is not None: 
+            num_pp_steps.append(num_transformer)
         if poly is not None: 
             num_pp_steps.append(poly)
             
     cat_pp_steps=[]
     if cat_imputer is not None: 
         cat_pp_steps.append(cat_imputer)
+    if cat_combiner is not None:
+        cat_pp_steps.append(cat_combiner)
+    if cat_encoder is not None:
+        cat_pp_steps.append(cat_encoder)
         
     transformer_list=[]
     if num_pp_steps != []: 
         transformer_list.append( ('num', Pipeline(steps=num_pp_steps), num_cols) )
     if cat_pp_steps !=[]:
-        transformer_list.append( ('cat', Pipeline(steps=cat_pp_steps), cat_impute_cols) )
+        transformer_list.append( ('cat', Pipeline(steps=cat_pp_steps), cat_cols) )
     
-    if ohe_cols is not None: 
-        transformer_list.append(('ohe', OneHotEncoder(), ohe_cols))
-
-    if bin_cols is not None: 
-        transformer_list.append(('bin', BinaryEncoder(), bin_cols))        
-
-    if ord_cols is not None: 
+    if ohe_cols is not []: 
+        transformer_list.append(('ohe', OneHotEncoder(drop=ohe_drop, sparse_output=True), ohe_cols)) 
+        
+    if ord_cols is not []: 
         transformer_list.append(('ord', OrdinalEncoder(), ord_cols))
     
     transformer=None
@@ -585,14 +608,20 @@ def build_and_run_pipes (df,target,scoring_metrics, search_type,
         pipe_steps.append( (est_tuple) )
     
         pipe = ImbPipeline(steps=pipe_steps) if oversampler is not None or undersampler is not None else Pipeline(steps=pipe_steps)
-        #pp_params = num_imputer_params | cat_imputer_params | poly_params | over_params | under_params | selector_params
+
         pp_params={}
         if num_imputer_params is not None: 
             pp_params=pp_params | num_imputer_params
-        if cat_imputer_params is not None: 
-            pp_params=pp_params | cat_imputer_params
+        if num_transformer_params is not None: 
+            pp_params=pp_params | num_transformer_params
         if poly_params is not None:
             pp_params=pp_params | poly_params
+        if cat_imputer_params is not None: 
+            pp_params=pp_params | cat_imputer_params
+        if cat_combiner_params is not None: 
+            pp_params=pp_params | cat_combiner_params
+        if cat_encoder_params is not None: 
+            pp_params=pp_params | cat_encoder_params
         if over_params is not None:
             pp_params=pp_params | over_params
         if under_params is not None:
@@ -601,7 +630,7 @@ def build_and_run_pipes (df,target,scoring_metrics, search_type,
             pp_params=pp_params | selector_params
         
         pipe_param_pairs.append( (pipe, pp_params | est_params) )
-            
+  
     results, models = run_pipelines(pipe_param_pairs = pipe_param_pairs,
              X=X,
              y=y,
@@ -620,136 +649,51 @@ def build_and_run_pipes (df,target,scoring_metrics, search_type,
     
     return results, models          
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def custom_imputer_col(X, col_to_impute, missing_value, pipe_step= ('lgr', LogisticRegression(n_jobs=-1, max_iter=1000, random_state=42))):
-    """
-    Impute missing values in a specific column
-    
-    Parameters:
-    - X: pandas DataFrame, the dataset containing missing values
-    - col_to_impute: str, the column with missing values to be imputed
-    - missing_value: the value representing missing data in the column
-    - pipe_step: tuple, additional step to add to the pipeline (default is logistic regression)
-    
-    Returns:
-    - X: pandas DataFrame, the dataset with imputed values
-    """
-    # Separate data into known and unknown target values
-    X_target_unknown = X[X[col_to_impute] == missing_value]
-    X_target_known = X[X[col_to_impute] != missing_value]
-    
-    #Drop column to be imputed
-    X_unknown = X_target_unknown.drop(columns=[col_to_impute])
-    
-    # Define Features and targets where target is known. Drop column to be imputed
-    X_known = X_target_known.drop(columns=[col_to_impute])
-    y_known = X_target_known[col_to_impute]
-    
-    # Split the known data into training and test sets
-    X_train, X_test, y_train, y_test = train_test_split(X_known, y_known, stratify = y_known, random_state=42)
-    
-    #Define columns for one hot encoding.  Note categorical_cols was already stripped of the col to impute
-    categorical_cols = X_train.select_dtypes(include=['object', 'category']).columns
-    #numerical_cols = X_train.select_dtypes(include=['int64', 'float64']).columns
-
-    #Define simple transformer 
-    transformer = ColumnTransformer(
-    transformers=[
-        #('poly', PolynomialFeatures(include_bias=False, degree =2), numerical_cols), 
-        ('ohe', OneHotEncoder(drop='if_binary', sparse_output=False), categorical_cols),
-    ], remainder='passthrough')
-    
-    #Define simple pipeline 
-    pipe = Pipeline([
-    ('transformer', transformer), 
-    ('scaler', StandardScaler()), 
-    #('selector', SelectFromModel(LogisticRegression(penalty='l1', solver='liblinear', max_iter=1000, random_state=42)) ),
-    pipe_step
-    ])
-    
-    #Evaluate Imputer
-    pipe.fit(X_train, y_train)
-    print("\nImputer Scores: ")
-    print(f"Train Score: {pipe.score(X_train, y_train):.5f}")
-    print(f"Test Score: {pipe.score(X_test, y_test):.5f}")
-    
-    print(f"\nValues before Imputing:")
-    print(X[col_to_impute].value_counts())
+def quick_cross_val_score(fit_models, X, y, scoring, excluded_cols=[], cv=5):
+    if excluded_cols !=[]:
+        X=X.copy(deep=True).drop(columns=excluded_cols)
+    model_names, scores=[],[]
+    for model in fit_models:
+        model_names.append(model.__class__.__name__)
+        scores.append(cross_val_score(model, X, y, cv=cv, scoring=scoring, n_jobs=-1).mean())  
+    return pd.DataFrame({'Model': model_names, 'Score': scores})
         
-    #Impute using entire dataset
-    pipe.fit(X_known, y_known)
-    imputed_values = pipe.predict(X_unknown)
-    
-    X_imputed = X.copy()
-    X_imputed.loc[ X[X[col_to_impute] == missing_value].index, col_to_impute] = imputed_values
-    
-    print(f"\nValues after Imputing:")
-    print(X_imputed[col_to_impute].value_counts())
-    return X_imputed
 
-def custom_imputer(X, col_missing_value_dict, 
-                   pipe_step= ('lgr', LogisticRegression(n_jobs=-1, max_iter=1000, random_state=42))):
-    """
-    Impute missing values in multiple columns 
+def get_lgr_pipe_coefs(pipe, transf_name='transformer', scaler_name='scaler', selector_name=None):
+    #Define coefficients and intercept
+    steps_list = list(pipe.named_steps.items())
+    model_name, _ = steps_list[-1]
+    my_coefs = pipe.named_steps[model_name].coef_[0]
+    intercept = pipe.named_steps[model_name].intercept_
+    #Features from Transformer
+    my_features = pipe.named_steps[transf_name].get_feature_names_out()
     
-    Parameters:
-    - X: pandas DataFrame, the dataset containing missing values
-    - col_missing_value_dict: dict, a dictionary where keys are the columns to be imputed and 
-                              values are the missing values in those columns
-    - pipe_step: tuple, additional step to add to the pipeline for imputation 
-                 (default is logistic regression)
+    if selector_name:
+        #Create mask for remaining features after selectfrommodel 
+        remaining_feature_mask = pipe.named_steps.selector.get_support()
+        #Set remaining features
+        remaining_features = np.array(my_features)[remaining_feature_mask]
+        
+        # Get the means and standard deviations
+        scaler = pipe.named_steps[scaler_name]
+        means = scaler.mean_[remaining_feature_mask]
+        std_devs = scaler.scale_[remaining_feature_mask]  # standard deviation
+        
+    else: 
+        # If there is no selector, all features remain
+        remaining_features = my_features
+        # Get the means and standard deviations for all features
+        scaler = pipe.named_steps[scaler_name]
+        means = scaler.mean_
+        std_devs = scaler.scale_
+        
+    # Create the dataframe with coefficients, means, and std_devs
+    interpretation_df = pd.DataFrame({
+    'coefs': my_coefs,
+    'means': means,
+    'std_devs': std_devs, 
+    'exp_unscaled_coefs': np.exp(my_coefs/std_devs),
+    }, index=remaining_features)
     
-    Returns:
-    - X_imputed: pandas DataFrame, the dataset with imputed values in specified columns
-    """
-    # Create a copy of the original DataFrame to store the imputed value
-    X_imputed = X.copy()
-    # Loop through each column and its corresponding missing value and call the custom_imputer_col function
-    for col_to_impute, missing_value in col_missing_value_dict.items():
-        print("="*20)
-        print(f"Column to Impute: {col_to_impute}   Missing Value: {missing_value}")
-        X_imputed = custom_imputer_col(X_imputed, col_to_impute, missing_value,pipe_step= pipe_step)
-    return X_imputed
-
-#perhaps use y instead of df and target_col
-def starter_pipes(df, target_col, regressor, X_train= None, imbalanced=False, range_extend=0.2):
-    n = df.shape[0]
-    m = df.shape[1]
-    
-    print(f"Target value counts: {df['target_col'].value_counts(normalize=True)}")
-    
-    if isinstance(regressor, KNeighborsClassifier):
-        if imbalanced: 
-            params = {
-                'knn__n_neighbors': randint(3, np.sqrt(n)+(n*range_extend)), #Rule of Thumb: Sqrt of N
-                'knn__weights':  ['uniform', 'distance'], #use distance for imbalanced classes
-                'knn__algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute'],
-                'knn__leaf_size': randint(5,100),  #default = 30
-                'knn__p': [1,2],
-                'knn__metric_params': [{'V': np.cov(X_train)}],
-                'knn__metric': ['mahalanobis']   
-                }   
-        else:      
-            params = {
-            'knn__n_neighbors': randint(3, np.sqrt(n)+(n*range_extend)), #Rule of Thumb: Sqrt of N
-            'knn__weights':  ['uniform', 'distance'], #use distance for imbalanced classes
-            'knn__algorithm': ['auto', 'ball_tree', 'kd_tree', 'brute'],
-            'knn__leaf_size': randint(5,100),  #default = 30
-            'knn__p': [1,2],
-            'knn__metric': ['minkowski', 'euclidean', 'manhattan']  
-            }    
-            
+    #Sort the dataframe
+    return interpretation_df.sort_values(by='exp_unscaled_coefs', ascending=False)

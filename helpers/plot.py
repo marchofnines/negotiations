@@ -121,8 +121,22 @@ def sns_categorical(df,feature,feature_label,hue, legend_title, rate_descr, figx
                         x=0.1, y=banner_y-0.02, ha='left')    
     plt.show()
 
-def sns_numerical(df,feature,feature_label,hue, legend_title, rate_descr, binwidth=None, xmin=None, xmax=None, ymin=None, ymax=None, figx=17, figy=8, common_fontsize=19.5, xtick_divisor=1, rotation=0):
+def sns_boxplot(df,feature,feature_label,hue, xmin=None, xmax=None, figx=17, figy=6, common_fontsize=19.5):
     common_fontsize =common_fontsize
+    plt.figure(figsize=(figx, figy))  
+    sns.set(style="whitegrid", font_scale=1)
+    palette = reverse_palette(df, hue, 'magma')
+    sns.boxplot(data=df, x=feature, y=hue, palette=palette)
+    plt.title(f'{feature_label} (Full Range)',fontsize=common_fontsize)
+    plt.xlabel(f'{feature_label}',fontsize=common_fontsize)
+    plt.ylabel('Count',fontsize=common_fontsize)
+    plt.xticks(fontsize=common_fontsize)
+    plt.yticks(fontsize=common_fontsize)
+    plt.xlim(xmin,xmax)
+    plt.show()
+    
+    palette = reverse_palette(df, hue, 'magma')
+def sns_numerical(df,feature,feature_label,hue, legend_title, rate_descr, binwidth=None, xmin=None, xmax=None, ymin=None, ymax=None, figx=17, figy=8, common_fontsize=19.5):
     plt.figure(figsize=(figx, figy))  
     sns.set(style="whitegrid", font_scale=1)
     
@@ -180,7 +194,6 @@ def myhist(df, feature, feature_label, hue, legend_title, legend_labels, binwidt
     # Create the plot
     sns.histplot(data=df, x=feature, hue=hue, binwidth=binwidth, legend=True, palette=palette)
     
-    
     # Customize labels and title
     plt.title(f'Distribution of {feature_label} by {legend_title}', fontsize=common_fontsize)
     plt.xlabel(feature_label, fontsize=common_fontsize)
@@ -194,6 +207,64 @@ def myhist(df, feature, feature_label, hue, legend_title, legend_labels, binwidt
     for t in legend.texts:
         t.set_fontsize(common_fontsize)  # Legend label fontsize
     plt.tight_layout()  
+    plt.show()
+
+def hist_orig_transf(df, feature, transformer, feature_label, hue, legend_title, legend_labels, binwidth_left=None, binwidth_right=None, xmin=None, xmax=None,figx=18, figy=8,common_fontsize=15):
+    plt.figure(figsize=(figx,figy))
+    sns.set(style="whitegrid", font_scale=1)
+    dft=df.copy(deep=True)
+    dft[f'transformed_{feature}']= transformer(dft[feature])
+   
+    # Determine the order of classes based on volume and assign colors accordingly
+    class_order = df[hue].value_counts().index
+    n_classes = df[hue].nunique()
+    magma_palette = sns.color_palette('magma', n_classes)
+    
+    # If the majority class should have a lighter color, reverse the palette
+    #if n_classes == 2:
+    magma_palette.reverse()
+    
+    # Create the custom palette dictionary
+    palette = {class_order[i]: magma_palette[i] for i in range(n_classes)}
+    
+    # First subplot for original data
+    #palette = reverse_palette(df, hue, 'magma')
+    plt.subplot(1,2,1)
+    ax1=sns.histplot(data=dft, x=feature, hue=hue, binwidth=binwidth_left, legend=True, palette=palette)
+    plt.title(f'Distribution of {feature_label} by {legend_title}', fontsize=common_fontsize)
+    plt.xlabel(feature_label, fontsize=common_fontsize)
+    plt.ylabel('Count', fontsize=common_fontsize)
+    plt.xticks(fontsize=common_fontsize)
+    plt.yticks(fontsize=common_fontsize)
+    plt.xlim(xmin,xmax)  if xmin is not None and xmax is not None else None
+    
+    # Second subplot for transformed data
+    #palette = reverse_palette(df, hue, 'magma')
+    plt.subplot(1,2,2)
+    ax2=sns.histplot(data=dft, x=f'transformed_{feature}', hue=hue, binwidth=binwidth_right, legend=True, palette=palette)
+    plt.title(f'Distribution of Transformed {feature_label} by {legend_title}', fontsize=common_fontsize)
+    plt.xlabel(feature_label, fontsize=common_fontsize)
+    plt.ylabel('Count', fontsize=common_fontsize)
+    plt.xticks(fontsize=common_fontsize)
+    plt.yticks(fontsize=common_fontsize)
+    #plt.xlim(xmin,xmax)  if xmin is not None and xmax is not None else None
+    
+    # Customize the legend
+    legend1 = ax1.get_legend()
+    legend1.set_title(legend_title, prop={'size': common_fontsize-1})
+    for text in legend1.get_texts():
+        text.set_fontsize(common_fontsize-1)
+        
+    legend2 = ax2.get_legend()
+    legend2.set_title(legend_title, prop={'size': common_fontsize-1})
+    for text in legend2.get_texts():
+        text.set_fontsize(common_fontsize-1)
+
+    plt.tight_layout(h_pad=1.09)
+    banner_y = 1.07
+    plt.suptitle(f"Original vs. Transformed Distribution for {feature_label} ", 
+                        fontsize=common_fontsize + 4, weight='bold', 
+                        x=0.5, y=banner_y-0.02, ha='center')    
     plt.show()
 
 
