@@ -448,6 +448,7 @@ def conf_matrix_PRC(model, X_test, y_test, probas_pos_index, class_labels=[], th
     #default_precision_prc = precision[default_precision_index]
     default_precision = precision_score(y_test,  model.predict(X_test), pos_label=pos_label)
     default_f1 = f1_score(y_test,  model.predict(X_test), pos_label=pos_label)
+    f1w = f1_score(y_test,  model.predict(X_test), average='weighted')
      
     #Plot the confusion matrix and the ROC AUC curve
     conf_matrix = confusion_matrix(y_test, y_test_preds)
@@ -481,7 +482,7 @@ def conf_matrix_PRC(model, X_test, y_test, probas_pos_index, class_labels=[], th
 
     # Plotting a horizontal line for the default threshold's precision
     plt.axhline(y=default_precision, color='blue', linestyle='--',
-                label=f'Default (p=0.5), F1:{default_f1:.2f} Precision:{default_precision:.2f}')
+                label=f'[p=0.5], [F1:{default_f1:.2f}], [F1W:{f1w:.2f}], [Precision:{default_precision:.2f}]')
    
     # Plotting a horizontal line for the optimal threshold's precision
     #plt.axhline(y=optimal_precision, color='red', linestyle='--',
