@@ -1,10 +1,26 @@
-import sys
-sys.path.append('/Users/basilhaddad/jupyter/capstone/')
+"""
+Author: Basil Haddad
+Date: 11.01.2023
+
+Description:
+    Import Libraries used for capstone project
+"""
+
+#import sys
+#sys.path.append('/Users/basilhaddad/jupyter/capstone/')
+
+import time
+import math 
+import copy
+import pprint
+
 import pandas as pd
 import numpy as np
+from joblib import dump, load
 from IPython.display import display
 from IPython.core.display import HTML
 from pandas.io.formats.style import Styler
+from pandas.io.formats import style
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -16,16 +32,15 @@ import plotly.graph_objects as go
 import plotly.io as pio
 pio.renderers.default='notebook'
 
-import math
-from scipy.stats import entropy, expon, randint, uniform
+from scipy.stats import entropy, expon, randint, uniform, loguniform
 from scipy.linalg import svd
 
 from sklearn.experimental import enable_halving_search_cv, enable_iterative_imputer
 from sklearn.impute import SimpleImputer, IterativeImputer, KNNImputer
 from category_encoders.cat_boost import CatBoostEncoder
 from category_encoders import JamesSteinEncoder, BinaryEncoder
-from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler, MaxAbsScaler, QuantileTransformer
-from sklearn.preprocessing import PolynomialFeatures, OneHotEncoder, OrdinalEncoder, LabelBinarizer
+from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler, MaxAbsScaler, PowerTransformer,  QuantileTransformer
+from sklearn.preprocessing import PolynomialFeatures, OneHotEncoder, OrdinalEncoder, TargetEncoder,  LabelBinarizer
 from sklearn.compose import make_column_transformer, make_column_selector, ColumnTransformer, TransformedTargetRegressor
 from sklearn.feature_selection import SequentialFeatureSelector, SelectFromModel, RFE
 from sklearn.feature_extraction.text import CountVectorizer
@@ -34,15 +49,15 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans, DBSCAN
 
-from sklearn.linear_model import LinearRegression, Lasso, HuberRegressor, Ridge, LogisticRegression
+from sklearn.linear_model import LinearRegression, Lasso, HuberRegressor, Ridge, RidgeClassifier, LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
 from sklearn.multiclass import OneVsOneClassifier
 from sklearn.tree import DecisionTreeRegressor, DecisionTreeClassifier, export_text, plot_tree
 from sklearn.svm import SVC
-from sklearn.ensemble import RandomForestClassifier, BaggingClassifier, AdaBoostClassifier
+from sklearn.ensemble import RandomForestClassifier, BaggingClassifier, AdaBoostClassifier, GradientBoostingClassifier
 
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import cross_val_score , train_test_split
+from sklearn.model_selection import cross_val_score , cross_validate, train_test_split
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, HalvingGridSearchCV, HalvingRandomSearchCV
 
 from sklearn.inspection import permutation_importance
@@ -56,6 +71,7 @@ from imblearn.over_sampling import SMOTE
 from imblearn.under_sampling import RandomUnderSampler
 from collections import Counter
 
+from sklearn.base import clone
 from sklearn import set_config
 import warnings
 from sklearn.exceptions import ConvergenceWarning
@@ -66,4 +82,5 @@ set_config(display="diagram")
 pd.set_option('display.max_columns', None)
 
 #warnings.filterwarnings('ignore')
-#warnings.filterwarnings("ignore", category=ConvergenceWarning)
+from sklearn.exceptions import ConvergenceWarning
+warnings.filterwarnings("ignore", category=ConvergenceWarning)

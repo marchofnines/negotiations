@@ -1,18 +1,18 @@
 """
-File containing Helper functions for Data Preprocessing and EDA
-
 Author: Basil Haddad
 Date: 11.01.2023
 
 Description:
-    Contains helper functions for preprocessing and conducting exploratory
-    data analysis (EDA) on datasets. 
+    Helper functions for preprocessing and conducting Exploratory Data Analysis (EDA) on datasets. 
 """
+
+from importlib import reload
+from helpers.my_imports import *
 
 def edit_cols(raw):
     """
     Rename and reorder columns of the data. 
-    This function is very specific to the Negotiations Dataset and is not a general use function.  
+    This function is  specific to the Negotiations Dataset and is not a general use function.  
 
     Takes the raw DataFrame and performs three main operations:
     1. Renames columns to more concise or readable names.
@@ -227,5 +227,118 @@ def get_rows_with_value_count_threshold(df, col, threshold):
     # Filter and return DataFrame rows matching the criteria
     return df[df[col].isin(col_value_list)]
 
+
+def logit1(x, epsilon=2e-3):
+    """
+    Apply the logit transformation to the data with an adjustment to handle extreme values.
+
+    The function adjusts the input data to avoid extreme values near 0 and 1 using a clipping threshold.
+
+    Parameters:
+    x (array-like): The input data.
+    epsilon (float, optional): The threshold used for clipping. Defaults to 2e-3.
+
+    Returns:
+    array: Transformed data.
+    """
+    # Avoid extreme values based on value of epsilon passed in
+    x_adj = np.clip(x, epsilon, 1 - epsilon)
+    return np.log(x_adj / (1 - x_adj))
+
+
+def logit2(x, epsilon=1e-2):
+    """
+    Defined this second logit function so it can be passed as an argument into a another (visualization) function
+    Apply the logit transformation to the data with an adjustment to handle extreme values.
+
+    This version uses a different clipping threshold compared to logit1 function.
+
+    Parameters:
+    x (array-like): The input data.
+    epsilon (float, optional): The threshold used for clipping. Defaults to 1e-2.
+
+    Returns:
+    array: Transformed data.
+    """
+    # Avoid extreme values based on value of epsilon passed in
+    x_adj = np.clip(x, epsilon, 1 - epsilon)
+    return np.log(x_adj / (1 - x_adj))
+
+
+def yeo_johnson(x):
+    """
+    Apply the Yeo-Johnson transformation to the data.
+
+    This transformation is used to make data more normally distributed. 
+    It's an extension of the Box-Cox transformation that can handle zero and negative values.
+
+    Parameters:
+    x (array-like): The input data.
+
+    Returns:
+    array: Transformed data.
+    """
+    # Reshaping the input data to a 2D array as PowerTransformer expects 2D inputs.
+    # The '-1' in reshape(-1, 1) infers the length of the array
+    reshaped = np.array(x).reshape(-1, 1)
+    pt = PowerTransformer(method='yeo-johnson', standardize=True)
+    # Fit and transform the data
+    return pt.fit_transform(reshaped)
+
+
+def quantile_transform(x):
+    """
+    Apply a quantile transformation to the data.
+
+    This transformation converts the variable to follow a specified distribution, 
+    such as the normal distribution, thereby making it more suitable for linear models.
+
+    Parameters:
+    x (array-like): The input data.
+
+    Returns:
+    array: Transformed data.
+    """
+    # Reshaping the input data to a 2D array as QuantileTransformer expects 2D inputs.
+    # The '-1' in reshape(-1, 1) infers the length of the array
+    reshaped = np.array(x).reshape(-1, 1)
+    qt = QuantileTransformer(output_distribution='normal', n_quantiles=1000, random_state=42)
+    # Fit and transform the data
+    return qt.fit_transform(reshaped)
+
+def arcsin_sqrt_transform(data):
+    """
+    Apply the arcsine square root transformation to the data.
+
+    This transformation is suitable for data where values are proportions that lie between 0 and 1. 
+    It's commonly used in statistics to stabilize variances of proportions.
+
+    Parameters:
+    data (array-like): An array-like object containing proportion data.
+
+    Returns:
+    array: Transformed data.
+    """
+    # Ensures that all values in the data are within the range [0, 1] which is the acceptable range for arcsin
+    data = np.clip(data, 0, 1)
+    return np.arcsin(np.sqrt(data))
+
+def get_kurtosis(df, col, function):
+    """
+    Calculate the kurtosis of a specified column in a DataFrame after applying a transformation function.
+
+    Kurtosis is a measure of the "tailedness" of the probability distribution of a real-valued random variable.
+
+    Parameters:
+    df (DataFrame): The input DataFrame.
+    col (str): The column name in the DataFrame for which to calculate the kurtosis.
+    function (callable): The transformation function to apply to the column.
+
+    Returns:
+    float: The kurtosis value.
+    """
+    import scipy.stats as stats
+    dfk = df.copy(deep=True)
+    return stats.kurtosis(function(df[col]), fisher=True)
 
 

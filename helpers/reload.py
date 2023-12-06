@@ -1,8 +1,13 @@
-import sys
-sys.path.append('/Users/basilhaddad/jupyter/capstone/')
-from importlib import reload
+"""
+Author: Basil Haddad
+Date: 11.01.2023
 
-    
+Description:
+    Contains just one function myreload to help reload libraries from Jupyter Notebooks
+"""
+
+from importlib import reload
+ 
 def myreload():
     """
     Reload specific modules from the 'helpers' package.
