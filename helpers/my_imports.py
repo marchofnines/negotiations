@@ -62,7 +62,7 @@ from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, HalvingGri
 
 from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_squared_error, accuracy_score, f1_score, recall_score, precision_score, make_scorer
-from sklearn.metrics import precision_recall_curve, auc, roc_curve, RocCurveDisplay, log_loss, roc_auc_score
+from sklearn.metrics import precision_recall_curve, auc, roc_curve, RocCurveDisplay, log_loss, roc_auc_score, average_precision_score
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, classification_report
 from sklearn.inspection import PartialDependenceDisplay, partial_dependence
 
@@ -70,6 +70,14 @@ from imblearn.pipeline import Pipeline as ImbPipeline
 from imblearn.over_sampling import SMOTE 
 from imblearn.under_sampling import RandomUnderSampler
 from collections import Counter
+
+import tensorflow as tf
+from scikeras.wrappers import KerasClassifier
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten, Input
+from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.layers import Dropout
 
 from sklearn.base import clone
 from sklearn import set_config

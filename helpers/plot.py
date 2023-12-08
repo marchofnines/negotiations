@@ -439,10 +439,11 @@ def conf_matrix_PRC(model, X_test, y_test, probas_pos_index, class_labels=[], th
     
     # Finding the threshold for the optimal F1 score
     optimal_threshold_index = np.argmax(f1_scores)
-    #optimal_threshold = thresholds[optimal_threshold_index]
+    optimal_f1 = f1_scores[optimal_threshold_index]
+    optimal_threshold = thresholds[optimal_threshold_index]
     optimal_precision = precision[optimal_threshold_index]
     optimal_recall = recall[optimal_threshold_index]
-     
+
     # F1 score using the default 0.5 threshold
     #default_precision_index = np.argmin(np.abs(thresholds - 0.5))  # closest precision index for threshold of 0.5
     #default_precision_prc = precision[default_precision_index]
@@ -473,8 +474,9 @@ def conf_matrix_PRC(model, X_test, y_test, probas_pos_index, class_labels=[], th
 
     # Subplot 2: Precision-Recall Curve
     plt.subplot(1, 2, 2)
-    plt.plot(recall, precision, label=f'Precision-Recall Curve (AUC:{auc(recall, precision):.2f})', linewidth=2.7)
-    plt.scatter(optimal_recall, optimal_precision, color='red', s=50)
+    plt.plot(recall, precision, label=f'Precision-Recall Curve (AUC:{auc(recall, precision):.3f})', linewidth=2.7)
+    plt.text(optimal_recall, optimal_precision, 'Best', fontsize=common_fontsize, color='red')
+    plt.scatter(optimal_recall, optimal_precision, color='red', s=50, label=f'p={optimal_threshold:.2f}, F1:{optimal_f1:.3f}, P:{optimal_precision:.3f}, R:{optimal_recall:.3f}') 
     
     # Calculate the baseline (chance level) for the PRC
     baseline = sum(y_test == model.classes_[probas_pos_index]) / len(y_test)
@@ -482,7 +484,7 @@ def conf_matrix_PRC(model, X_test, y_test, probas_pos_index, class_labels=[], th
 
     # Plotting a horizontal line for the default threshold's precision
     plt.axhline(y=default_precision, color='blue', linestyle='--',
-                label=f'[p=0.5], [F1:{default_f1:.2f}], [F1W:{f1w:.2f}], [Precision:{default_precision:.2f}]')
+                label=f'[p=0.5], [F1:{default_f1:.3f}], [F1W:{f1w:.3f}], [Precision:{default_precision:.3f}]')
    
     # Plotting a horizontal line for the optimal threshold's precision
     #plt.axhline(y=optimal_precision, color='red', linestyle='--',
