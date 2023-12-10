@@ -393,7 +393,7 @@ def cv_and_holdout(estimator,X, y, test_size=0.25, stratify=None, random_state=4
     elif 'random' in search_type.lower():
         search = RandomizedSearchCV(estimator, param_dict, n_iter=n_iter, scoring=scoring, refit=refit, random_state=random_state, verbose=verbose, cv=cv, n_jobs=n_jobs)
     search.fit(X_train, y_train)
-    print("HELLO")
+
     # Step 2: Build Custom Results DataFrame based on cv_results_
     cv_results = pd.DataFrame(search.cv_results_)
     #Unclutter results

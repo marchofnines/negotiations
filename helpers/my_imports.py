@@ -72,12 +72,14 @@ from imblearn.under_sampling import RandomUnderSampler
 from collections import Counter
 
 import tensorflow as tf
+from sklearn.preprocessing import LabelEncoder
 from scikeras.wrappers import KerasClassifier
-from tensorflow.keras.utils import to_categorical
+"""from tensorflow.keras.layers import Dense, Flatten, Input, Dropout
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Flatten, Input
-from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.layers import Dropout
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.optimizers import Adam
+from keras.callbacks import EarlyStopping
+from tensorflow.keras.regularizers import L1, L2"""
 
 from sklearn.base import clone
 from sklearn import set_config
