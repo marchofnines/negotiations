@@ -309,7 +309,7 @@ def myhist(df, feature, feature_label, hue, legend_title, legend_labels, binwidt
     plt.tight_layout()  
     plt.show()
 
-def hist_orig_transf(df, feature, transformer, feature_label, hue, legend_title, legend_labels, binwidth_left=None, binwidth_right=None, xmin=None, xmax=None, ymin=None, ymax=None, figx=18, figy=8,common_fontsize=15):
+def hist_orig_transf(df, feature, transformer, transformer_name, feature_label, hue, legend_title, legend_labels, binwidth_left=None, binwidth_right=None, xmin=None, xmax=None, ymin=None, ymax=None, figx=18, figy=8,common_fontsize=15):
     """
     Generate side-by-side histograms for original and transformed data.
 
@@ -391,7 +391,7 @@ def hist_orig_transf(df, feature, transformer, feature_label, hue, legend_title,
 
     plt.tight_layout(h_pad=1.09)
     banner_y = 1.07
-    plt.suptitle(f"Original vs. Transformed Distribution for {feature_label} ", 
+    plt.suptitle(f"Original vs. {transformer_name} Transformed Distribution for {feature_label} ", 
                         fontsize=common_fontsize + 4, weight='bold', 
                         x=0.5, y=banner_y-0.02, ha='center')    
     plt.show()

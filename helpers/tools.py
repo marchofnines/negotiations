@@ -328,7 +328,7 @@ def get_lgr_pipe_coefs(pipe, transf_name='transformer', scaler_name='scaler', se
 
 
 def cv_and_holdout(estimator,X, y, test_size=0.25, stratify=None, random_state=42, search_type='halving_random', param_dict=None,
-                  scoring=None, refit=None, refit_scorer=None, holdout_tolerance=0, verbose=0, cv=5, n_iter=10, factor=3, summary=True):
+                  scoring=None, refit=None, refit_scorer=None, holdout_tolerance=0, verbose=0, cv=5, n_iter=10, factor=3, summary=True,n_jobs=-1):
     """
     Conducts cross-validation and holdout validation for a given estimator using specified parameters.
 
@@ -386,14 +386,14 @@ def cv_and_holdout(estimator,X, y, test_size=0.25, stratify=None, random_state=4
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, stratify=y, random_state=random_state)
 
     if 'grid' in search_type.lower():
-        search = GridSearchCV(estimator, param_dict, scoring=scoring, refit=refit, cv=cv, n_jobs=-1)
+        search = GridSearchCV(estimator, param_dict, scoring=scoring, refit=refit, cv=cv, n_jobs=n_jobs)
     elif 'halving' in search_type.lower():
         search = HalvingRandomSearchCV(estimator,param_dict,factor=factor,scoring=scoring,refit=True,random_state=random_state,
                                        verbose=verbose, cv=cv, n_jobs=-1)
     elif 'random' in search_type.lower():
-        search = RandomizedSearchCV(estimator, param_dict, n_iter=n_iter, scoring=scoring, refit=refit, random_state=random_state, verbose=verbose, cv=cv, n_jobs=-1)
+        search = RandomizedSearchCV(estimator, param_dict, n_iter=n_iter, scoring=scoring, refit=refit, random_state=random_state, verbose=verbose, cv=cv, n_jobs=n_jobs)
     search.fit(X_train, y_train)
-    
+    print("HELLO")
     # Step 2: Build Custom Results DataFrame based on cv_results_
     cv_results = pd.DataFrame(search.cv_results_)
     #Unclutter results
@@ -467,9 +467,9 @@ def cv_and_holdout(estimator,X, y, test_size=0.25, stratify=None, random_state=4
         if hasattr(estimator, 'steps'):
             display(HTML(f'<h3>Results for {estimator.steps[-1][0]}: </h3>'))
         display(HTML(f'<h5>Models ranked by descending {cv_rank_refit_col}</h5>'))
-        display(cv_results.iloc[:4,:].style.hide(axis='index'))
+        display(cv_results.iloc[:2,:].style.hide(axis='index'))
         display(HTML(f'<h5>Models ranked by overfit status and descending holdout {ho_test_score_refit_col}</h5>'))
-        display(HTML(ho_results.iloc[:4,:].to_html(index=False)))
+        display(HTML(ho_results.iloc[:5,:].to_html(index=False)))
 
     # Step 7: Plot Holdout Validation Model Scores and show best non-overfit (or least overfit if threshold > 0) if available
     if summary:
@@ -604,7 +604,7 @@ def build_and_run_pipes (df,target,scoring_metrics, refit, search_type, estimato
                  
                    set_name=None,
                    cv=5, n_iter=10, summary=True, verbose=0,
-                   test_size=0.25, stratify=None,rs=42,factor=3):
+                   test_size=0.25, stratify=None,rs=42,factor=3, n_jobs=-1):
     """
     Constructs, pipelines that include preprocessing, scaling, rare category compbiners, oversampling/undersampling, 
     feature selection.  Pipeline can be rebuilt for various estimators for cross-validation with hyperparameter tuning 
@@ -768,7 +768,7 @@ def build_and_run_pipes (df,target,scoring_metrics, refit, search_type, estimato
                 cv=cv,
                 n_iter=n_iter, 
                 summary=summary, 
-                factor=factor)  
+                factor=factor,n_jobs=n_jobs)  
     else: 
         #perfrom grid/random search cross-validation as well as holdout validation
         #list best models by descending order holdout rank and plot scores 
@@ -786,7 +786,7 @@ def build_and_run_pipes (df,target,scoring_metrics, refit, search_type, estimato
                                 cv=cv,
                                 verbose=verbose, 
                                 summary=summary,
-                                factor=factor)
+                                factor=factor, n_jobs=n_jobs)
         
     path = 'models/hyperparam_tuning'
     if set_name:
