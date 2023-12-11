@@ -1,12 +1,15 @@
 ## Emergency Medicine Negotiations: Will the Provider Accept the Insurance Company Offer? 
 
+### Important Notes
+- The first part of the capstone project was submitted after the deadline and has not yet been graded yet so I did not update the existing files.  Instead, part 2 of my capstone was pushed to a new branch called [part2](https://github.com/marchofnines/negotiations/tree/part2).   
+- The Jupyter notebook links below point to the updated files in the part2 branch
+
 ### Files Included
 #### Jupyter Notebooks
-- [1. Exploratory Data Analysis](https://github.com/marchofnines/negotiations/blob/main/1_EDA_capstone.ipynb)
-- [2. Feature Engineering](https://github.com/marchofnines/negotiations/blob/main/2_FE_capstone.ipynb)
-- [3. Cross-Validation](https://github.com/marchofnines/negotiations/blob/main/3_CV_capstone.ipynb)
-- [4. Cross-Validation with Hyperparameter Tuning](https://github.com/marchofnines/negotiations/blob/main/4_HT_capstone.ipynb)
-- [5. Model Evaluation](https://github.com/marchofnines/negotiations/blob/main/5_ME_capstone.ipynb)
+- [1. Exploratory Data Analysis](https://github.com/marchofnines/negotiations/blob/part2/1_EDA_capstone.ipynb)
+- [2. Feature Engineering](https://github.com/marchofnines/negotiations/blob/part2/2_FE_capstone.ipynb)
+- [3. Cross-Validation with Hyperparameter Tuning](https://github.com/marchofnines/negotiations/blob/part2/4_HT_capstone.ipynb)
+- [4. Model Evaluation](https://github.com/marchofnines/negotiations/blob/part2/4_ME_capstone.ipynb)
 
 #### data folder
 - negotiations.csv (dataset)
@@ -25,14 +28,13 @@
     - models and results from feature engineering and cross-validation
 - hyperparam_tuning folder
     - models and results from hyperparameter tuning
-- README.md
+
 #### saved_dfs folder
 - saved_dfs/preprocessed_negotiations_df.csv - cleaned dataframe
 - saved_dfs/sfm_scores.csv - scores of scores vs. n features selected (used in Feature Engineering)
 
 
-
-### Context
+### Business Context
 When an Out of Network Health Care Provider bills insurance, Insurance companies and Third Party Administrators (TPAs) do not automatically reimburse providers.  Instead, they typically offer a reduced reimbursement amount.  Many of these claims end up in negotiations between Insurance/TPAs and providers.
 
 ### Business Objective
@@ -119,48 +121,73 @@ Given an Insurance Claim, should TotalCare Accept or Reject the Offer extended b
 - #### decision: This is the Target and indicates whether the Provider Accepted (Positive Class) or Rejected the offer
 
 ### Model Evaluation: 
+#### Choice of Metric
 - We will use the F1 scoring metric as our primary performance metrics because we want to strike a balance between minimizing False Positives and minimizing False Negatives: 
-    - We do not want to accept offers that our team would normally be rejecting.  This means that we want to minimize False Positives i.e. maximize Precision/PPV which is True Positives divided by the Predicted Positives TP/(TP+FP).  Precision is intuitively the ability of the classifier not to label as positive a sample that is negative.
-    - At the same time we do not want to reject offers that our team would normally be accepting.  This means that we want to minimze False Negatives i.e. maximize Recall/Sensitivity/TPR which is the proportion of true positives divided by the total number of truly postive classifications (TP/(TP+FN). Recall is intuitively the ability of the classifier to find all the positive samples.
-- And since we have an Imbalanced Dataset where only ~12% of the claims are accepted, we will use the weighted version of F1. F1 weighted score weighs the importance of each class according to its presence in the dataset. This avoids giving undue influence to the performance on the Rejected class just because it is more common. Specifically in our case, if our model has a good performance on Rejections, it could mask poor performance on Acceptances in an unweighted F1 score. The weighted F1 score gives more importance to the performance on Acceptances, proportional to their presence in the dataset.
-- Additionally we will use the Precision-Recall Curve to find the best trade-off between Precision and Recall 
-- While we do want to balance Precision and Recall, False Negatives are slightly worst for us than False Positives.  Therefore we have a slight preference for Precision over Recall
+    - We do not want to accept offers that our team would normally be rejecting.  This means that we want to minimize False Positives i.e. maximize Precision/PPV which is True Positives divided by the Predicted Positives TP/(TP+FP).  Precision answers the question: Of all the instances predicted as positive, how many were actually positive?.
+    - At the same time we do not want to reject offers that our team would normally be accepting.  This means that we want to minimze False Negatives i.e. maximize Recall/Sensitivity/TPR which is the proportion of true positives divided by the total number of truly postive classifications (TP/(TP+FN). Recall answers the question: Of all the actual positive instances, how many did the model successfully identify?"
 
-### Results: 
-- Ability to predict decisions along with a level of confidence (Not available with all models)
+#### Variations of the Metric
+- There are three variations of the F1 score that we considered:
+    - Micro-averaged: all samples equally contribute to the final averaged metric
+    - Macro-averaged: all classes equally contribute to the final averaged metric
+    - Weighted-averaged: each classes’s contribution to the average is weighted by its size
+- Since we have an Imbalanced Dataset where only ~12% of the claims are accepted, we will use the weighted version of F1. This avoids giving undue influence to the performance on the Rejected class just because it is more common. Specifically in our case, if our model has a good performance on Rejections, it could mask poor performance on Acceptances in an unweighted F1 score. The weighted F1 score gives more importance to the performance on Acceptances, proportional to their presence in the dataset.
+
+### Results and Interpretation: 
+Results and Interpretation will include: 
+- Model that predicts decisions along with a level of confidence (confidence thresholds not available with all models)
 - Identify the most important factors that result in an accepted claim (Not available with all models)
-
-### Summary of EDA Findings
-- Removed rows containing invalid data as well as a small percentage of rows containing nulls 
-- Removed claim_id, negotiation_id and claim_status columns
-- Plan to combine rare categories and cross-validate using different size groupings
-- Converted date fields into numerical fields that show the difference in number of days relative to the deadline
-- Included ratios of the amount fields so that we can test to see whether ratios perform better than absolute numbers 
-- Explored various transformations of numerical features which will have to be tested out during Cross-Validation: 
-    - Log Transforms and Quantile Transforms for the day and amount features
-    - Logit and Quantile Transforms for the ratios
+- Confusion Matrix and Precision Recall Curve
+- Lift and Cumulative Gain Curves
+- Counter Factuals
 
 ### Summary of Feature Engineering Findings
-- Dummy Classifier score: 0.84
-- We will be replacing the amount fields billed_amount, negotiation_amount, offer, counter_offer, with 3 ratio columns as we saw that this reduces multicollinearity and improves the performance across most model types
+- Dummy Classifier f1 weighted score: 0.588
+- We confirmed that it would be helpful to replace the amount fields `billed_amount`, `negotiation_amount`, `offer`, `counter_offer`, with 3 ratio columns as we saw that this reduces multicollinearity and improves the performance across most model types
 - Permutation Importance showed that offer_to_neg and offer_to_counter_offer are the most important features across most models
-- Using simple models without fully built transformers, and without hyper parameter tuning we see slightly overfit models with F1 weighted scores ranging from ~0.93 to ~0.94
-- Our Cross-Validation against different values of n features showed that RandomForest and GradientBoosting looked the most promising, especially between n=10 to n=25 features, but continued to do well up until ~n=41
-- Regularization stabilizes around 1/C=0.1 (i.e. C=10)
+- The `level` feature tends to get excluded in feature selection and tests without it are perhaps slightly better but still mixed.  We will let Feature Selection handle its inclusion/exclusion for us when we do Cross-Validation
+- Our Cross-Validation against different values of n features showed that RandomForest and GradientBoosting looked the most promising, especially between n=17 to n=48 features, 
+- Regularization stabilizes around 1/C=1 (i.e. C=1)
+- Using models with default parameters we see mostly overfit models with test F1 weighted scores reaching up to approximately ~0.93
 
-### Summary of Cross-Validation Findings
-- In addition to not having the benefit of Hyperparameter Tuning in this section, most of the tests resulted in overfit models so we  take these results with a grain of salt and leave options open for our transformer/pipeline design during Hyperparameter Tuning
-- We do plan on exploring adding Oversampling/Undersampling to our Pipeline, as well as a Transformer to combine rare values for Categorical columns but since these functions depend heavilty on their parameters we will explore them when we do Hyperparameter Tuning
-- We plan to start the next section (HyperParameter Tuning) with Yeo-Johnson Transformation and TargetEncoder for all our tests but we will still try multiple scalers.  
-- RFE and SequentialFeatureSelector run much slower than SelectFromModel and with default settings ended up giving us similar results.  Since Execution Time will become increasingly important for HyperParameter Tuning, we will stick with SelectFromModel
-- We did not see an especially high Precision Results for the RidgeClassifier so we may drop it early in the next section
-- There were some features that we considered dropping in Feature Engineering, however we will let our SelectFromModel function handle that for us in the next section
-
-### Summary of Hyper Parameter Tuning Findings
+### Summary of Cross-Validation with HyperParameter Tuning Findings
 - The best non-overfit model for Logistic Regression was from set 7 and had a test f1 weighted score of 0.9502 with mean fit time 8.6s 
 - The best non-overfit model for Gradient Boost Classifier was from set 8 and has a test f1 weight score of 0.9515 and a mean fit time of 13.09s. It also had higher Cross-Validation Results than the Logistic Regression Model (0.944 vs 0.937)
 
 ### Summary of Model Evaluation Findings
-- We showed the coefficients of our best Logistic Regression Model even though it was a close 2nd overall.  This was done to show the relative importance of the features.  Ability to interpret the features was limited due to the fact that numerical values underwent a yeo-johnson transformation
+#### Coefficients
+- We showed the coefficients of our best Logistic Regression Model even though we had a better GradientBoostClassifier Model.  This was done to show the relative importance of the features. The features were listed from most important to least important.  
+- Ability to interpret the features themselves and their effect on the target is limited due to the fact that numerical values underwent a yeo-johnson transformation and also because we have a binary classification problem which means we cannot speak in terms of an increase or decrease in the target like we can with a Regression problem.
+
+#### Precision-Recall Tradeoff 
 - We also showed the confusion matrix and Precision-Curves for our best Logistic Regression Models and our best overall (GBC) model.  
-- For both models, we also showed what happens when we increase the probability threshold to reduce the number of FNs which is something the Billing Department was interested in.
+- For both models, we invited the reader to set the threshold to various values in order to get a sense of the tradeoff by seeing the effect on the FPs and FNs in the confusion matrix as well as where on the PRC curve the selected threshold lies.  We did this because the Billing Department has a slight leaning towards Precision over Recall.  This allows the team to visualize what the tradeoff looks like at varying thresholds
+
+#### Lift and Cumulative Gains Curve for best Model
+- The Lift Curve for our GBC model shows that for the first 20% of our 'best' claims, we will have ~5x more Accepted negotiations than if we selected random claims. 
+- However, we do not know what the characteristics of those claims we are calling 'best'are.  In order to explain this, we would need to use clustering methods such as k-means. 
+- In the Cumulative Gains Curve, we see we can obtain almost ~99% of the Accepted Negotiations with just 20% of our claims! 
+
+#### Counter Factuals
+- Two Counter Factuals for the first sample were explored: 
+1. All features being the same, but increasing the offer_to_neg ratio from 0.0546 to 0.634 and increasing the offer_to_counter_offer ratio from 0.0728 to 0.8662 (likely to occur with a change in TPA_rep) would have resulted in changing the outcome from Rejected to Accepted.  
+2. All features being the same, but increasing the offer_to_neg ratio from 0.0546 to 0.9456 and increasing the offer_to_counter_offer ratio from 0.0728 to 0.625 (likely to occur with a change in group_number) would have resulted in changing the outcome from Rejected to Accepted.  
+
+### Summary of Non-Technical Findings (Findings Only)
+We have built a Machine Learning model to predict the outcome of negotations. We share our main findings below: 
+- Out of 2133 claims that we tested our best model, the model predicted:
+    - 2029 negotiation decisions correctly 
+    - 55 negotiations as Accepted that were actually Rejected
+    - 49 negotiations as Rejected that were actually Accepted
+- The most important aspects of the claim that affect predictability (in descending order) are: Offer to Negotgiation Amount ratio, Offer to Counter offer Ratio, Negotiation Amount to Billed Amount, Was the claim initiated in response to a Reconsideration Letter or some other action taken by us?, Was it a Split Claim? Was it a UB claim?  How many days before the deadline did we receive the offer?  There are of course other factors but these are the most important ones. Unfortunately with the exception of who initiated the claim, these factors are not something we control.  
+- If we were able to group our claims by Acceptance Rate, we would find that the first 20% of our 'best' claims have ~5x more Accepted negotiations than if we select a claim at random. Unfortunately, we do not yet know what  the characteristics of those claims we are calling 'best'claims.  In order to explain this, we would need to conduct additional research. If we are successful with this research, we can potentially obtain almost ~99% of the Accepted Negotiations with just 20% of our claims! 
+    
+
+### Actionable Items, Recommendations and Next Steps (Non-Technical)
+- If/whenever possible, we should initiate claims ourselves rather than let the Insurance companies initiate them because this increases the Acceptance Rate. 
+- Perform a study to identify profiles of claims that would result in higher than average acceptance rates
+- Build data validations to improve the quality of the data. For example, check if the offer amount is greater than the negotiation amount or billed amount before allowing a record to be saved.
+- As an organization, we need to make a business decision on whether we wish to tune our model to increase the confidence level (e.g. 80% confidence) even though this would result in more claims predicted as Rejections that are actually Acceptances
+- In order for this project to be useful, we would recommend building an application that would take all the fields in a claim including the offer amount and predict the negotiation decision. 
+- Update our data with new claim samples 2 to 3 times a year and retrain and tune the model 
+- Based on our work, we can take an already rejected claim and show by how much the ratio fields or number of days features would have needed to change to bring about an Acceptance. This counter-factual information may be useful for us to study going forward, in order to develop a guidance chart for the team
