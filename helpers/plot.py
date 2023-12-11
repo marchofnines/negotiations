@@ -437,20 +437,25 @@ def conf_matrix_PRC(model, X_test, y_test, probas_pos_index, class_labels=[], th
     # Ignoring the last value of precision and recall as they correspond to the lowest threshold (i.e., "recall" is 1)
     f1_scores = 2 * (precision[:-1] * recall[:-1]) / (precision[:-1] + recall[:-1])
     
-    # Finding the threshold for the optimal F1 score
-    optimal_threshold_index = np.argmax(f1_scores)
-    optimal_f1 = f1_scores[optimal_threshold_index]
-    optimal_threshold = thresholds[optimal_threshold_index]
-    optimal_precision = precision[optimal_threshold_index]
-    optimal_recall = recall[optimal_threshold_index]
-
     # F1 score using the default 0.5 threshold
     #default_precision_index = np.argmin(np.abs(thresholds - 0.5))  # closest precision index for threshold of 0.5
     #default_precision_prc = precision[default_precision_index]
     default_precision = precision_score(y_test,  model.predict(X_test), pos_label=pos_label)
     default_f1 = f1_score(y_test,  model.predict(X_test), pos_label=pos_label)
-    f1w = f1_score(y_test,  model.predict(X_test), average='weighted')
-     
+    f1w = f1_score(y_test,  model.predict(X_test), average='weighted') #will be used on label for default 
+    
+    # Optimal F1 score 
+    optimal_threshold_index = np.argmax(f1_scores)
+    #optimal_f1 = f1_scores[optimal_threshold_index]
+    #optimal_threshold = thresholds[optimal_threshold_index]
+    optimal_precision = precision[optimal_threshold_index]
+    optimal_recall = recall[optimal_threshold_index]
+
+    #F1 score for selected threshold
+    selected_threshold_index = np.argmin(np.abs(thresholds - threshold))
+    selected_precision=precision[selected_threshold_index]
+    selected_f1=f1_scores[selected_threshold_index]
+    
     #Plot the confusion matrix and the ROC AUC curve
     conf_matrix = confusion_matrix(y_test, y_test_preds)
         
@@ -475,8 +480,8 @@ def conf_matrix_PRC(model, X_test, y_test, probas_pos_index, class_labels=[], th
     # Subplot 2: Precision-Recall Curve
     plt.subplot(1, 2, 2)
     plt.plot(recall, precision, label=f'Precision-Recall Curve (AUC:{auc(recall, precision):.3f})', linewidth=2.7)
-    plt.text(optimal_recall, optimal_precision, 'Best', fontsize=common_fontsize, color='red')
-    plt.scatter(optimal_recall, optimal_precision, color='red', s=50, label=f'p={optimal_threshold:.2f}, F1:{optimal_f1:.3f}, P:{optimal_precision:.3f}, R:{optimal_recall:.3f}') 
+    plt.text(optimal_recall, optimal_precision, f'Best', fontsize=common_fontsize, color='red')
+    plt.scatter(optimal_recall, optimal_precision, color='red', s=50) #label=f'p={optimal_threshold:.2f}, F1:{optimal_f1:.3f}, P:{optimal_precision:.3f}, R:{optimal_recall:.3f} 
     
     # Calculate the baseline (chance level) for the PRC
     baseline = sum(y_test == model.classes_[probas_pos_index]) / len(y_test)
@@ -484,12 +489,19 @@ def conf_matrix_PRC(model, X_test, y_test, probas_pos_index, class_labels=[], th
 
     # Plotting a horizontal line for the default threshold's precision
     plt.axhline(y=default_precision, color='blue', linestyle='--',
-                label=f'[p=0.5], [F1:{default_f1:.3f}], [F1W:{f1w:.3f}], [Precision:{default_precision:.3f}]')
-   
+                label=f'p=0.5, f1: {default_f1:.3f}, f1 weighted:{f1w:.3f}') #[F1:{default_f1:.3f}],[Precision:{default_precision:.3f}]
+    plt.text(0, default_precision+0.01,  f'p={0.5}', fontsize=common_fontsize, color='blue')
+    
     # Plotting a horizontal line for the optimal threshold's precision
     #plt.axhline(y=optimal_precision, color='red', linestyle='--',
     #            label=f'Best Tradeoff at p={optimal_threshold:.2f} (Precision:{optimal_precision:.3f})')
-
+    
+    #Plotting a horinzontal line for the selected threshold precision
+    if threshold != 0.5: 
+        plt.axhline(y=selected_precision, color='red', linestyle='--',
+                    label=f'p={threshold}, f1: {selected_f1:.3f}, precision:{selected_precision:.3f}') 
+        plt.text(0, selected_precision+0.01,  f'p={threshold}', fontsize=common_fontsize, color='red')
+    
     plt.title('Precision-Recall Curve', fontsize=common_fontsize) 
     plt.xlabel('Recall (TP/TP+FN)', fontsize=common_fontsize) #Sensitivity
     plt.ylabel('Precision (TP/TP+FP)', fontsize=common_fontsize)  #PPV
@@ -534,7 +546,7 @@ def scores_vs_thresholds(model, X_test, y_test, probas_pos_index, common_fontsiz
     # Ignoring the last value of precision and recall as they correspond to the lowest threshold (i.e., "recall" is 1)
     f1_scores = 2 * (precision[:-1] * recall[:-1]) / (precision[:-1] + recall[:-1])
     
-    # Create a plot
+    # Plot Precision, Recall, and F1 vs. Threshold
     plt.figure(figsize=(figx, figy))
     plt.plot(thresholds, precision[:-1], label="Precision", linewidth=2)
     plt.plot(thresholds, recall[:-1], label="Recall", linewidth=2)
@@ -544,7 +556,39 @@ def scores_vs_thresholds(model, X_test, y_test, probas_pos_index, common_fontsiz
     plt.xlabel("Probability Threshold", fontsize=common_fontsize)
     plt.ylabel("Score", fontsize=common_fontsize)
     plt.legend(loc="best", fontsize=common_fontsize)
-    plt.xticks(fontsize=common_fontsize - 2)
+    plt.xticks(np.arange(0, 1.1, 0.1), fontsize=common_fontsize - 2)  
+    plt.yticks(fontsize=common_fontsize - 2)
     plt.yticks(fontsize=common_fontsize - 2)
     plt.grid(True)
+    plt.show()
+
+def lift_and_cumulative_gains(y_true, y_score, lift_line_label=None, lift_title='Lift Curve', 
+                              gains_line_label=None, gains_title='Gains Curve'):
+    #set common fontsize and define figure and axes
+    common_fontsize=18
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+    # Lift Curve
+    plt.subplot(1, 2, 1)
+    skplt.metrics.plot_lift_curve(y_true, y_score, ax=ax1)
+    if lift_line_label is not None:
+        plt.axvline(x=0.2, linestyle='--', color='red', label=lift_line_label)
+    plt.title(lift_title, fontsize=common_fontsize) 
+    plt.xlabel('Percent of Sample', fontsize=common_fontsize)
+    plt.ylabel('Lift', fontsize=common_fontsize)
+    plt.xticks(np.arange(0, 1.1, 0.1), fontsize=common_fontsize-2)
+    plt.yticks(np.arange(1,10, 1), fontsize=common_fontsize-2)
+    plt.legend(loc='upper right', fontsize=common_fontsize*0.9)
+
+    # Cumulative Gains Curve
+    plt.subplot(1, 2, 2)
+    skplt.metrics.plot_cumulative_gain(y_true, y_score, ax=ax2)
+    if gains_line_label is not None:
+        plt.axvline(x=0.2, linestyle='--', color='red', label=gains_line_label)
+    plt.title(gains_title, fontsize=common_fontsize) 
+    plt.xlabel('Percent of Sample', fontsize=common_fontsize)
+    plt.ylabel('Percent of Accepted Claims (Gain)', fontsize=common_fontsize)
+    plt.xticks(np.arange(0, 1.1, 0.1), fontsize=common_fontsize-2)
+    plt.yticks(fontsize=common_fontsize-2)
+    plt.legend(loc='lower right', fontsize=common_fontsize*0.9)
+
     plt.show()

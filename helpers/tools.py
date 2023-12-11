@@ -277,30 +277,27 @@ def custom_get_feature_names(fit_model):
 
        
 
-def get_lgr_pipe_coefs(pipe, transf_name='transformer', scaler_name='scaler', selector_name=None):
-    ####PROB NEED TO REDO
+def get_lgr_pipe_coefs(pipe, scaler_name='scaler', selector_name=None):
     """
-    Extract logistic regression coefficients from a pipeline for feature interpretation.
-
-    This function retrieves the coefficients and intercept from a logistic regression model within
-    a pipeline. It also obtains feature names, means, and standard deviations to assist in 
-    interpreting the model. It returns a DataFrame sorted by the exponential of the unscaled coefficients.
+    Extract coefficients and standard deviation from a pipeline for feature interpretation. 
+    The returned dataframe is sorted by descending absolute value of the coefficients which is the 
+    same as the descending order of predictive importance. 
 
     Parameters:
     pipe (Pipeline or ImbPipeline): Fitted scikit-learn pipeline containing a logistic regression model.
-    transf_name (str, optional): Name of the transformer step in the pipeline. Defaults to 'transformer'.
     scaler_name (str, optional): Name of the scaler step in the pipeline. Defaults to 'scaler'.
     selector_name (str, optional): Name of the feature selector step in the pipeline. Defaults to None.
 
     Returns:
-    DataFrame: A DataFrame containing coefficients, means, standard deviations, and exponential unscaled coefficients.
+    DataFrame: A DataFrame containing coefficients, standard deviations sorted by descending absolute
+    value of the coefficients
     """
     
     #Define coefficients and intercept
     steps_list = list(pipe.named_steps.items())
     model_name, _ = steps_list[-1]
     my_coefs = pipe.named_steps[model_name].coef_[0]
-    intercept = pipe.named_steps[model_name].intercept_
+    #intercept = pipe.named_steps[model_name].intercept_
     #Features from Transformer
     remaining_features, _ = custom_get_feature_names(pipe)   #pipe.named_steps[transf_name].get_feature_names_out()
     if selector_name:
@@ -317,14 +314,14 @@ def get_lgr_pipe_coefs(pipe, transf_name='transformer', scaler_name='scaler', se
         
     # Create the dataframe with coefficients, means, and std_devs
     interpretation_df = pd.DataFrame({
-    'coef': my_coefs,
-    #'median': median,
+    'Absolute Value of Coefficient': np.abs(my_coefs),
     'std_dev': std_dev, 
-    'exp_unscaled_coefs': np.exp(my_coefs/std_dev),
-    }, index=remaining_features)
+    #'unscaled_coefs': my_coefs/std_dev,
+    #'exp_unscaled_coefs': np.exp(my_coefs/std_dev)
+    }, index=remaining_features).round(2)
     
     #Sort the dataframe
-    return interpretation_df.sort_values(by='exp_unscaled_coefs', ascending=False)
+    return interpretation_df.sort_values(by='Absolute Value of Coefficient', ascending=False)
 
 
 def cv_and_holdout(estimator,X, y, test_size=0.25, stratify=None, random_state=42, search_type='halving_random', param_dict=None,
