@@ -6,10 +6,12 @@
 
 ### Files Included
 #### Jupyter Notebooks
-- [1. Exploratory Data Analysis](https://github.com/marchofnines/negotiations/blob/part2/1_EDA_capstone.ipynb)
-- [2. Feature Engineering](https://github.com/marchofnines/negotiations/blob/part2/2_FE_capstone.ipynb)
-- [3. Cross-Validation with Hyperparameter Tuning](https://github.com/marchofnines/negotiations/blob/part2/4_HT_capstone.ipynb)
-- [4. Model Evaluation](https://github.com/marchofnines/negotiations/blob/part2/4_ME_capstone.ipynb)
+- [1. Exploratory Data Analysis](https://github.com/marchofnines/negotiations/blob/part2/1_Exploratory_Data_Analysis.ipynb.ipynb)
+- [2. Feature Engineering](https://github.com/marchofnines/negotiations/blob/part2/2_Feature_Engineering.ipynb.ipynb)
+- [3. Cross-Validation with Hyperparameter Tuning LGR, RF, GBC](https://github.com/marchofnines/negotiations/blob/part2/3_HyperParameter_Tuning_LGR_RF_GBC.ipynb)
+- [4. Cross-Validation with Hyperparameter Tuning MLPClassifier](https://github.com/marchofnines/negotiations/blob/part2/4_HyperParameter_Tuning_MLPClassifier.ipynb)
+- [5. Cross-Validation with Hyperparameter Tuning KerasClassifier](https://github.com/marchofnines/negotiations/blob/part2/5_HyperParameter_Tuning_KerasClassifier.ipynb)
+- [6. Model Evaluation](https://github.com/marchofnines/negotiations/blob/part2/6_Model_Evaluation.ipynb.ipynb)
 
 #### data folder
 - negotiations.csv (dataset)
@@ -141,7 +143,7 @@ Results and Interpretation will include:
 - Lift and Cumulative Gain Curves
 - Counter Factuals
 
-### Summary of Feature Engineering Findings
+### Summary of Feature Engineering Findings (Notebook 2)
 - Dummy Classifier f1 weighted score: 0.588
 - We confirmed that it would be helpful to replace the amount fields `billed_amount`, `negotiation_amount`, `offer`, `counter_offer`, with 3 ratio columns as we saw that this reduces multicollinearity and improves the performance across most model types
 - Permutation Importance showed that offer_to_neg and offer_to_counter_offer are the most important features across most models
@@ -150,11 +152,32 @@ Results and Interpretation will include:
 - Regularization stabilizes around 1/C=1 (i.e. C=1)
 - Using models with default parameters we see mostly overfit models with test F1 weighted scores reaching up to approximately ~0.93
 
-### Summary of Cross-Validation with HyperParameter Tuning Findings
+### Summary of Cross-Validation with HyperParameter Tuning Findings for LGR, RF and GBC  (Notebook 3)
 - The best non-overfit model for Logistic Regression was from set 7 and had a test f1 weighted score of 0.9502 with mean fit time 8.6s 
-- The best non-overfit model for Gradient Boost Classifier was from set 8 and has a test f1 weight score of 0.9515 and a mean fit time of 13.09s. It also had higher Cross-Validation Results than the Logistic Regression Model (0.944 vs 0.937)
+- RandomForestClassifier consistently underperformed GradientBoostClassifier, so we dropped it after Set2
+- The best non-overfit model for GradientBoostClassifier was from set 8 and has a test f1 weight score of 0.9515 and a mean fit time of 13.09s. It also had higher Cross-Validation Results than the Logistic Regression Model (0.944 vs 0.937)
+- We note that not only did GradientBoostClassifier score slightly higher than LogisticRegression, it did so with Polynomial Degree = 1 which equates to a simpler model
 
-### Summary of Model Evaluation Findings
+### Summary of Findings for Cross-Validation / Hyperparameter Tuning for MLPClassifier (Notebook 4)
+- Using MLPClassifier allowed to leverage Neural Networks while using an sklearn classifier
+- We had some overfitting in some of our sets which we were able to address by reducing layer dimensions, number of layers, alpha and learning rate among other parameters
+- MLPClassifier's best sets were Sets 5 and 7 with a test score of ~0.931.  Set 5 had no polynomialfeatures and used 3 layers (20,15,10) whereas Set 7 used PolynomialFeatures degree 2 and had 2 layers (64,32)
+- Our GradientBoostClassifier model from notebook 3 is still the top performer
+
+### Summary of Findings for Cross-Validation / Hyperparameter Tuning for KerasClassifier (Notebook 5)
+### Summary of Findings for Cross-Validation with Hyperparameter Tuning
+- In sets 3 and 4, we finally were able to find models that are not overfit, even though this was at the cost of a reduction in score.  The best non-overfit f1 weighted score was from set 4 and was 0.894.
+- To arrive at this model, we did a compbination of reducing the number of hidden layers and the neurons per layer.  We also increased regularization, dropout rate and batch size while decreaseing the learning rate and the number of epochs and introduced early stopping with a Learning Rate Schedule.
+- Next steps would include:
+  - Looking into why the F1Score layer was not properly built for sets 3 and 4 only
+  - Use class weights parameters to see if this improves performance.  This makes sense since we have an imbalanced dataset.  
+- The best model remains our GradientBoostClassifier with a score of 0.9515
+
+### Summary of Model Evaluation Findings (Notebook 6)
+#### Overview 
+- We performed HyperParameter Tuning on 5 models: `LogisticRegression`, `RandomForest`, `GradientBoostClassifier`, `MLPClassifier` and `KerasClassifier`.  While `LogisticRegression` scored slightly less than `GradientBoostClassifier`,  we still take a look at the `LogisticRegression` so we can inspect the most important coefficients. 
+- It bears reiterating that not only did GradientBoostClassifier score slightly higher than LogisticRegression, it did so with Polynomial Degree = 1 which equates to a simpler model
+
 #### Coefficients
 - We showed the coefficients of our best Logistic Regression Model even though we had a better GradientBoostClassifier Model.  This was done to show the relative importance of the features. The features were listed from most important to least important.  
 - Ability to interpret the features themselves and their effect on the target is limited due to the fact that numerical values underwent a yeo-johnson transformation and also because we have a binary classification problem which means we cannot speak in terms of an increase or decrease in the target like we can with a Regression problem.
@@ -173,7 +196,7 @@ Results and Interpretation will include:
 1. All features being the same, but increasing the offer_to_neg ratio from 0.0546 to 0.634 and increasing the offer_to_counter_offer ratio from 0.0728 to 0.8662 (likely to occur with a change in TPA_rep) would have resulted in changing the outcome from Rejected to Accepted.  
 2. All features being the same, but increasing the offer_to_neg ratio from 0.0546 to 0.9456 and increasing the offer_to_counter_offer ratio from 0.0728 to 0.625 (likely to occur with a change in group_number) would have resulted in changing the outcome from Rejected to Accepted.  
 
-### Summary of Non-Technical Findings (Findings Only)
+#### Summary of Non-Technical Findings (Findings Only)
 We have built a Machine Learning model to predict the outcome of negotations. We share our main findings below: 
 - Out of 2133 claims that we tested our best model, the model predicted:
     - 2029 negotiation decisions correctly 
@@ -183,7 +206,7 @@ We have built a Machine Learning model to predict the outcome of negotations. We
 - If we were able to group our claims by Acceptance Rate, we would find that the first 20% of our 'best' claims have ~5x more Accepted negotiations than if we select a claim at random. Unfortunately, we do not yet know what  the characteristics of those claims we are calling 'best'claims.  In order to explain this, we would need to conduct additional research. If we are successful with this research, we can potentially obtain almost ~99% of the Accepted Negotiations with just 20% of our claims! 
     
 
-### Actionable Items, Recommendations and Next Steps (Non-Technical)
+#### Actionable Items, Recommendations and Next Steps (Non-Technical)
 - If/whenever possible, we should initiate claims ourselves rather than let the Insurance companies initiate them because this increases the Acceptance Rate. 
 - Perform a study to identify profiles of claims that would result in higher than average acceptance rates
 - Build data validations to improve the quality of the data. For example, check if the offer amount is greater than the negotiation amount or billed amount before allowing a record to be saved.
