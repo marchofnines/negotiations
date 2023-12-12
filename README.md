@@ -1,8 +1,7 @@
 ## Emergency Medicine Negotiations: Will the Provider Accept the Insurance Company Offer? 
 
-### Important Notes
-- The first part of the capstone project was submitted after the deadline and has not yet been graded yet so I did not update the existing files.  Instead, part 2 of my capstone was pushed to a new branch called [part2](https://github.com/marchofnines/negotiations/tree/part2).   
-- The Jupyter notebook links below point to the updated files in the part2 branch
+### Important Note
+- I submitted the first part of my capstone as the main branch. Part 2 of my capstone was pushed to a new branch called [part2](https://github.com/marchofnines/negotiations/tree/part2).   
 
 ### Files Included
 #### Jupyter Notebooks
