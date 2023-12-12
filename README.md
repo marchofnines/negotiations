@@ -12,7 +12,7 @@
 #### data folder
 - negotiations.csv (dataset)
 
-#### helpers module
+#### helpers package
 - __init__.py - Package initialization
 - my_imports.py - import libraries
 - helpers/plot.py - helper functions for plotting
