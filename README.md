@@ -1,4 +1,4 @@
-## Emergency Medicine Negotiations: Will the Provider Accept the Insurance Company Offer? 
+## Emergency Medicine Insurance Claim Negotiations: Will the Provider Accept the Insurance Company Offer? 
 
  ### Files Included
 #### Jupyter Notebooks
