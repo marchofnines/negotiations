@@ -6,12 +6,12 @@
 
 ### Files Included
 #### Jupyter Notebooks
-- [1. Exploratory Data Analysis](https://github.com/marchofnines/negotiations/blob/part2/1_Exploratory_Data_Analysis.ipynb.ipynb)
-- [2. Feature Engineering](https://github.com/marchofnines/negotiations/blob/part2/2_Feature_Engineering.ipynb.ipynb)
+- [1. Exploratory Data Analysis](https://github.com/marchofnines/negotiations/blob/part2/1_Exploratory_Data_Analysis.ipynb)
+- [2. Feature Engineering](https://github.com/marchofnines/negotiations/blob/part2/2_Feature_Engineering.ipynb)
 - [3. Cross-Validation with Hyperparameter Tuning LGR, RF, GBC](https://github.com/marchofnines/negotiations/blob/part2/3_HyperParameter_Tuning_LGR_RF_GBC.ipynb)
 - [4. Cross-Validation with Hyperparameter Tuning MLPClassifier](https://github.com/marchofnines/negotiations/blob/part2/4_HyperParameter_Tuning_MLPClassifier.ipynb)
 - [5. Cross-Validation with Hyperparameter Tuning KerasClassifier](https://github.com/marchofnines/negotiations/blob/part2/5_HyperParameter_Tuning_KerasClassifier.ipynb)
-- [6. Model Evaluation](https://github.com/marchofnines/negotiations/blob/part2/6_Model_Evaluation.ipynb.ipynb)
+- [6. Model Evaluation](https://github.com/marchofnines/negotiations/blob/part2/6_Model_Evaluation.ipynb)
 
 #### data folder
 - negotiations.csv (dataset)
