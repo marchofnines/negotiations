@@ -41,3 +41,4 @@ else:
     prediction = json.loads(response.text)['prediction']
     st.write("## Prediction: Accepted" if prediction ==1 else "## Prediction: Rejected")
     
+    

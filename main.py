@@ -37,6 +37,7 @@ print(f1w_test_gbc)
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+
 #data validation
 class input_vars(BaseModel): 
     claim_type: str
