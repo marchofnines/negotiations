@@ -29,7 +29,8 @@ payload_dict['offer_to_counter_offer'] = st.number_input(label='Ratio of Offer t
 
 
 #url="http://127.0.0.1:8000/predict_negotiation_decision/"
-url ="https://share.streamlit.io/marchofnines/sample_app/predict_negotiation_decision/"
+#url ="https://share.streamlit.io/marchofnines/sample_app/predict_negotiation_decision/"
+url="negotiations.streamlit.app/"
 
 response = requests.post(url=url, json=payload_dict)
 
