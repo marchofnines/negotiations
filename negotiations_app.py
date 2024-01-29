@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import json
+import os
 
 #st.header("Claim Negotiation Decision Predictor")
 st.header("Please enter the Negotiation details below:")
@@ -27,10 +28,18 @@ payload_dict['neg_to_billed'] = st.number_input(label='Ratio of Negotiated Amoun
 payload_dict['offer_to_neg'] = st.number_input(label='Ratio of Offer to Negotiated Amount', format="%f", step=0.0001)
 payload_dict['offer_to_counter_offer'] = st.number_input(label='Ratio of Offer to Counter Offer', format="%f", step=0.0001)
 
+if 'HEROKU_APP_NAME' in os.environ: 
+    base_url = f"https://{os.environ['HEROKU_APP_NAME']}.herokuapp.com"
+else: 
+    base_url = "http://127.0.0.1:8000/"
+
+# Define the full URL
+url = f"{base_url}/predict_negotiation_decision/"
 
 #url="http://127.0.0.1:8000/predict_negotiation_decision/"
-#url ="https://share.streamlit.io/marchofnines/sample_app.py/predict_negotiation_decision/"
-url="https://github.com/marchofnines/negotiations/blob/master/negotiations_app"
+
+
+
 
 response = requests.post(url=url, json=payload_dict)
 
