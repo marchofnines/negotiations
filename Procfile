@@ -1,1 +1,1 @@
-web: streamlit run negotiations_app.py
+web: streamlit run negotiations_app.py & uvicorn main:app --host=0.0.0.0 --port=$PORT
