@@ -1,1 +1,1 @@
-web: sh setup.sh && streamlit run negotiations_app.py
+web: streamlit run negotiations_app.py
