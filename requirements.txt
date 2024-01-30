@@ -10,9 +10,8 @@ helpers
 IPython
 matplotlib
 seaborn
-scipy.stats
-scipy.linalg
 imblearn
 plotly
 scikitplot
+warnings
 # Add other dependencies if needed
