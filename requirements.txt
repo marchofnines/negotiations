@@ -12,5 +12,4 @@ matplotlib
 seaborn
 imblearn
 plotly
-warnings
 # Add other dependencies if needed
