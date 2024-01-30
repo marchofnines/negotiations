@@ -13,4 +13,5 @@ seaborn
 imblearn
 plotly
 scikit-plot
+scipy
 # Add other dependencies if needed
