@@ -12,6 +12,5 @@ matplotlib
 seaborn
 imblearn
 plotly
-scikitplot
 warnings
 # Add other dependencies if needed
