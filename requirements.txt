@@ -1,8 +1,8 @@
-helpers
+sklearn
+pandas
 joblib
 pydantic
 requests
-pandas
 uvicorn
 fastapi
 streamlit

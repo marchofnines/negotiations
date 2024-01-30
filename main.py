@@ -1,13 +1,11 @@
-#from importlib import reload
-from helpers.my_imports import *
-import helpers.preprocessing as pp
-import helpers.plot as plot
-import helpers.tools as tools
-import helpers.transformers as xfrs
-#from helpers.reload import myreload
+#from helpers.my_imports import *
+import pandas as pd
+import os 
+from sklearn.model_selection import train_test_split
+from fastapi import FastAPI
+from pydantic import BaseModel
+from joblib import dump, load
 
-#make sure latest copy of library is loaded
-#myreload()
 
 #Global Variable for Random State
 rs=42 #random_state
@@ -33,10 +31,6 @@ model = load('models/hyperparam_tuning/ht_ens_set8.joblib')
 #f1w_test_gbc = f1_score(y_test_gbc, y_pred_test, average='weighted')
 #print(f1w_train_gbc)
 #print(f1w_test_gbc)
-
-from fastapi import FastAPI
-from pydantic import BaseModel
-
 
 #data validation
 class input_vars(BaseModel): 
@@ -67,7 +61,13 @@ app = FastAPI()
 def read_root(): 
     return {"Hello": "World"}
 
+
 @app.post("/predict_negotiation_decision/")
 def make_preds(independent_variables: input_vars):
     prediction = model.predict(pd.DataFrame(independent_variables.model_dump(), index=[0] ))
     return {"prediction": int(prediction[0])}
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=port)
