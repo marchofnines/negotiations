@@ -8,4 +8,5 @@ fastapi
 streamlit
 helpers
 IPython
+matplotlib
 # Add other dependencies if needed
