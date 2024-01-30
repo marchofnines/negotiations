@@ -6,4 +6,5 @@ requests
 uvicorn
 fastapi
 streamlit
+helpers
 # Add other dependencies if needed
