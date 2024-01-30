@@ -9,4 +9,10 @@ streamlit
 helpers
 IPython
 matplotlib
+seaborn
+scipy.stats
+scipy.linalg
+imblearn
+plotly
+scikitplot
 # Add other dependencies if needed
