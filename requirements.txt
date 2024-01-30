@@ -7,4 +7,5 @@ uvicorn
 fastapi
 streamlit
 helpers
+IPython
 # Add other dependencies if needed
