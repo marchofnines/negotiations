@@ -25,14 +25,14 @@ X_train_gbc.shape, X_test_gbc.shape, y_train_gbc.shape, y_test_gbc.shape
 model = load('models/hyperparam_tuning/ht_ens_set8.joblib')
 
 #Calculate predicted train and test target
-y_pred_train = model.predict(X_train_gbc)
-y_pred_test = model.predict(X_test_gbc)
+#y_pred_train = model.predict(X_train_gbc)
+#y_pred_test = model.predict(X_test_gbc)
 
 # Calculating F1 score
-f1w_train_gbc = f1_score(y_train_gbc, y_pred_train, average='weighted')
-f1w_test_gbc = f1_score(y_test_gbc, y_pred_test, average='weighted')
-print(f1w_train_gbc)
-print(f1w_test_gbc)
+#f1w_train_gbc = f1_score(y_train_gbc, y_pred_train, average='weighted')
+#f1w_test_gbc = f1_score(y_test_gbc, y_pred_test, average='weighted')
+#print(f1w_train_gbc)
+#print(f1w_test_gbc)
 
 from fastapi import FastAPI
 from pydantic import BaseModel
